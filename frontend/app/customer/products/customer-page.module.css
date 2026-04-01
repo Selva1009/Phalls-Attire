@@ -751,6 +751,34 @@
   box-shadow: 0 14px 30px rgba(233, 30, 99, 0.24);
 }
 
+.productActionStack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.productPayNow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(214, 167, 190, 0.9);
+  background: #fff;
+  color: #935a76;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.productPayNow:hover {
+  transform: translateY(-2px);
+  border-color: #e91e63;
+  box-shadow: 0 12px 24px rgba(122, 82, 103, 0.1);
+}
+
 .productAction svg {
   transition: transform 0.25s ease;
 }

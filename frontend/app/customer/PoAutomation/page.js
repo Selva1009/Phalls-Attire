@@ -83,6 +83,12 @@ const formatDate = (value) =>
       })
     : "N/A";
 
+const formatOrderNumber = (value, fallback) => {
+  const raw = String(value || fallback || "").trim();
+  const cleaned = raw.replace(/^PO[-\s]?/i, "").trim();
+  return cleaned || String(fallback || "").trim();
+};
+
 const buildSearchText = (order) =>
   [
     order.po_number,
@@ -117,7 +123,9 @@ function OrderDetailModal({
         <div className={styles.modalHeader}>
           <div>
             <p className={styles.modalEyebrow}>Order Details</p>
-            <h2 className={styles.modalTitle}>{order.po_number}</h2>
+            <h2 className={styles.modalTitle}>
+              Order #{formatOrderNumber(order.po_number, order.id)}
+            </h2>
             <p className={styles.modalSubtitle}>Placed on {formatDate(order.order_date)}</p>
           </div>
           <button type="button" className={styles.modalClose} onClick={onClose}>
@@ -250,6 +258,8 @@ export default function OrdersPage() {
         const customerData = JSON.parse(storedCustomer);
         const token = localStorage.getItem("token");
         if (!token) {
+          setError("Please sign in to view your orders.");
+          setLoading(false);
           return;
         }
         const response = await fetch(`${API_BASE_URL}/api/orders`, {
@@ -259,10 +269,10 @@ export default function OrdersPage() {
           router.push("/SignIn");
           return;
         }
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-          throw new Error(data.message || "Failed to load orders");
+          throw new Error(data.message || data.error || "Failed to load orders");
         }
 
         setOrders(data.purchaseOrders || []);
@@ -348,6 +358,14 @@ export default function OrdersPage() {
     }
   };
 
+  const handlePayNow = (order) => {
+    const amount = Number(order?.total_amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return;
+    }
+    router.push(`/customer/payment?amount=${encodeURIComponent(amount)}`);
+  };
+
   const handleBuyAgain = (order) => {
     const productId = order.items?.[0]?.product_id;
     if (!productId) {
@@ -359,7 +377,7 @@ export default function OrdersPage() {
   };
 
   const handleNeedHelp = (order) => {
-    toast.info(`Support placeholder for ${order.po_number}`);
+    toast.info(`Support placeholder for Order #${formatOrderNumber(order.po_number, order.id)}`);
   };
 
   if (loading) {
@@ -376,11 +394,10 @@ export default function OrdersPage() {
       <div className={styles.pageShell}>
         <main className={styles.main}>
           <section className={styles.hero}>
-            <span className={styles.eyebrow}>Customer Orders</span>
-            <h1 className={styles.heroTitle}>Track every order in one calm, premium place.</h1>
+            <span className={styles.eyebrow}>My Orders</span>
+            <h1 className={styles.heroTitle}>Track your dress orders at a glance.</h1>
             <p className={styles.heroText}>
-              Inspired by professional ecommerce order centers, this page focuses on order status,
-              quick actions, invoice access, and clear order details in the same pink customer-side theme.
+              See order status, delivery progress, and quick actions in a familiar marketplace layout.
             </p>
           </section>
 
@@ -461,7 +478,9 @@ export default function OrdersPage() {
                       <div className={styles.orderTop}>
                         <div>
                           <div className={styles.orderMetaRow}>
-                            <p className={styles.orderNumber}>{order.po_number}</p>
+                            <p className={styles.orderNumber}>
+                              Order #{formatOrderNumber(order.po_number, order.id)}
+                            </p>
                             <span className={`${styles.statusBadge} ${statusMeta.tone}`}>
                               {statusMeta.label}
                             </span>
@@ -523,7 +542,7 @@ export default function OrdersPage() {
               ) : (
                 <div className={styles.messageCard}>
                   {orders.length === 0
-                    ? "No orders found yet. Orders created from your cart will appear here."
+                    ? "No orders yet. Complete a purchase to see it here."
                     : "No orders matched your current search or filter."}
                 </div>
               )}

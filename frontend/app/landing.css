@@ -696,3 +696,128 @@
     padding: 22px;
   }
 }
+
+.payment-page {
+  min-height: 100vh;
+  padding: 120px 16px 60px;
+  background:
+    radial-gradient(circle at 10% 12%, rgba(248, 200, 220, 0.68), transparent 24%),
+    radial-gradient(circle at 90% 14%, rgba(255, 226, 236, 0.78), transparent 18%),
+    linear-gradient(180deg, #fff8fb 0%, #fff4f8 54%, #fff9f4 100%);
+  color: #382834;
+}
+
+.payment-shell {
+  width: min(860px, 100%);
+  margin: 0 auto;
+}
+
+.payment-card {
+  border: 1px solid rgba(244, 214, 226, 0.9);
+  border-radius: 28px;
+  padding: 32px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 22px 56px rgba(112, 65, 88, 0.1);
+}
+
+.payment-header h1 {
+  margin: 8px 0 0;
+  font-family: var(--font-playfair), serif;
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  color: #362630;
+}
+
+.payment-header p {
+  margin: 10px 0 0;
+  color: #6f5a67;
+}
+
+.payment-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.68);
+  color: #a04e76;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+}
+
+.payment-form {
+  margin-top: 22px;
+  display: grid;
+  gap: 14px;
+}
+
+.payment-form label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #6f5a67;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+
+.payment-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(214, 167, 190, 0.6);
+  background: #fff;
+}
+
+.payment-currency {
+  font-weight: 800;
+  color: #c2185b;
+}
+
+.payment-input {
+  flex: 1;
+  border: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #2f2430;
+  background: transparent;
+  outline: none;
+}
+
+.payment-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 20px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #e91e63, #c2185b);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 18px 38px rgba(233, 30, 99, 0.22);
+  cursor: pointer;
+}
+
+.payment-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.payment-status {
+  margin-top: 18px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  font-weight: 600;
+}
+
+.payment-status-success {
+  background: #e7f6ee;
+  color: #1f7a45;
+}
+
+.payment-status-error {
+  background: #fff0f3;
+  color: #b4234f;
+}

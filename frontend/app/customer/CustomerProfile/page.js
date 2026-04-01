@@ -43,6 +43,8 @@ const CustomerProfile = ({ initialSection = "order-history" }) => {
   const [activeSection, setActiveSection] = useState("order-history");
   const [addresses, setAddresses] = useState([]);
   const [addressLoading, setAddressLoading] = useState(false);
+  const [activeAddressId, setActiveAddressId] = useState(null);
+  const [showAllAddresses, setShowAllAddresses] = useState(false);
   const [editingAddressId, setEditingAddressId] = useState(null);
   const [addressForm, setAddressForm] = useState({
     name: "",
@@ -123,6 +125,12 @@ const CustomerProfile = ({ initialSection = "order-history" }) => {
     };
 
     fetchOrders();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = localStorage.getItem("activeAddressId");
+    if (stored) setActiveAddressId(Number(stored));
   }, []);
 
   useEffect(() => {
@@ -326,6 +334,15 @@ const CustomerProfile = ({ initialSection = "order-history" }) => {
     }
   };
 
+  const handleSelectAddress = (address) => {
+    setActiveAddressId(address.id);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("activeAddressId", String(address.id));
+      localStorage.setItem("activeAddress", JSON.stringify(address));
+      window.dispatchEvent(new Event("storage"));
+    }
+  };
+
   const handleSave = async (event) => {
     event.preventDefault();
     if (isLoading) return;
@@ -491,7 +508,7 @@ const CustomerProfile = ({ initialSection = "order-history" }) => {
       <div className="profile-card-header">
         <div>
           <p className="profile-section-label">Order History</p>
-          <h3>Recent purchase orders</h3>
+          <h3>Recent orders</h3>
         </div>
       </div>
 
@@ -500,7 +517,7 @@ const CustomerProfile = ({ initialSection = "order-history" }) => {
           purchaseOrders.slice(0, 6).map((order) => (
             <article key={order.id} className="profile-order-item">
               <div className="profile-order-top">
-                <span className="profile-order-badge">PO #{order.id}</span>
+                <span className="profile-order-badge">Order #{order.id}</span>
                 <span className="profile-order-date">{formatDate(order.order_date)}</span>
               </div>
               <h4>{order.items?.[0]?.product_name || "Order item"}</h4>
@@ -513,7 +530,7 @@ const CustomerProfile = ({ initialSection = "order-history" }) => {
           ))
         ) : (
           <div className="profile-empty-orders">
-            No purchase orders yet. Items created from your cart will appear here.
+            No orders yet. Complete a purchase to see it here.
           </div>
         )}
       </div>
@@ -775,11 +792,11 @@ const CustomerProfile = ({ initialSection = "order-history" }) => {
                 <section className="profile-card">
                   <div className="profile-card-header">
                     <div>
-                      <p className="profile-section-label">Addresses</p>
-                      <h3>Manage delivery addresses</h3>
+                      {/* <p className="profile-section-label">Addresses</p> */}
+                      {/* <h3>Manage delivery addresses</h3> */}
                     </div>
                   </div>
-                  <div className="profile-address-layout">
+                  {/* <div className="profile-address-layout"> */}
                     <form className="profile-address-form" onSubmit={handleAddressSubmit}>
                       <div className="profile-address-form-head">
                         <div>
@@ -880,7 +897,7 @@ const CustomerProfile = ({ initialSection = "order-history" }) => {
                       <div className="profile-address-list-head">
                         <div>
                           <h4>Saved addresses</h4>
-                          <p>Keep at least one address on file for faster checkout.</p>
+                          {/* <p>Keep at least one address on file for faster checkout.</p> */}
                         </div>
                         <span>{addresses.length}</span>
                       </div>
@@ -888,48 +905,87 @@ const CustomerProfile = ({ initialSection = "order-history" }) => {
                       {addressLoading ? (
                         <div className="profile-address-empty">Loading addresses...</div>
                       ) : addresses.length > 0 ? (
-                        <div className="profile-address-cards">
-                          {addresses.map((address) => (
-                            <article key={address.id} className="profile-address-card">
-                              <div className="profile-address-card-top">
-                                <div>
-                                  <h5>{address.name}</h5>
-                                  <p>{address.phone}</p>
+                        <>
+                          <div className="profile-address-cards">
+                            {(showAllAddresses ? addresses : addresses.slice(0, 2)).map((address) => (
+                              <article
+                                key={address.id}
+                                className={`profile-address-card ${
+                                  activeAddressId === address.id ? "profile-address-card-active" : ""
+                                }`}
+                                onClick={() => handleSelectAddress(address)}
+                                role="button"
+                                tabIndex={0}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter") handleSelectAddress(address);
+                                }}
+                              >
+                                <div className="profile-address-card-top">
+                                  <div>
+                                    <h5>{address.name}</h5>
+                                    <p>{address.phone}</p>
+                                  </div>
+                                  <span className="profile-address-badge">
+                                    {activeAddressId === address.id ? "Active" : `#${address.id}`}
+                                  </span>
                                 </div>
-                                <span className="profile-address-badge">#{address.id}</span>
-                              </div>
-                              <div className="profile-address-card-body">
-                                <p>{address.address_line}</p>
-                                <span>
-                                  {address.city}, {address.state} - {address.pincode}
-                                </span>
-                              </div>
-                              <div className="profile-address-card-actions">
-                                <button
-                                  type="button"
-                                  className="profile-address-action profile-address-action-ghost"
-                                  onClick={() => handleAddressEdit(address)}
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  type="button"
-                                  className="profile-address-action profile-address-action-danger"
-                                  onClick={() => handleAddressDelete(address.id)}
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            </article>
-                          ))}
-                        </div>
+                                <div className="profile-address-card-body">
+                                  <p>{address.address_line}</p>
+                                  <span>
+                                    {address.city}, {address.state} - {address.pincode}
+                                  </span>
+                                </div>
+                                <div className="profile-address-card-actions">
+                                  <button
+                                    type="button"
+                                    className="profile-address-action profile-address-action-ghost"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleAddressEdit(address);
+                                    }}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="profile-address-action profile-address-action-danger"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleAddressDelete(address.id);
+                                    }}
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </article>
+                            ))}
+                          </div>
+                          {addresses.length > 2 && !showAllAddresses && (
+                            <button
+                              type="button"
+                              className="profile-address-showmore"
+                              onClick={() => setShowAllAddresses(true)}
+                            >
+                              Show more
+                            </button>
+                          )}
+                          {addresses.length > 2 && showAllAddresses && (
+                            <button
+                              type="button"
+                              className="profile-address-showmore"
+                              onClick={() => setShowAllAddresses(false)}
+                            >
+                              Show less
+                            </button>
+                          )}
+                        </>
                       ) : (
                         <div className="profile-address-empty">
                           No saved addresses yet. Add one to get started.
                         </div>
                       )}
                     </div>
-                  </div>
+                  {/* </div> */}
                 </section>
               )}
 

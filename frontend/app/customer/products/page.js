@@ -282,10 +282,12 @@ function ProductCard({ product, onClick, onToggleWishlist, isWishlisted }) {
             {/* <p className={styles.productLabel}>Starting at</p> */}
             <p className={styles.productPrice}>{formatPrice(product.price)}</p>
           </div>
-          <button type="button" className={styles.productAction} onClick={() => onClick(product.id)}>
-            View
-            <ArrowRight size={16} />
-          </button>
+          <div className={styles.productActionStack}>
+            <button type="button" className={styles.productAction} onClick={() => onClick(product.id)}>
+              View
+              <ArrowRight size={16} />
+            </button>
+          </div>
         </div>
       </div>
     </article>

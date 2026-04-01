@@ -1,15 +1,12 @@
 .pageShell {
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgba(248, 200, 220, 0.68), transparent 28%),
-    radial-gradient(circle at 84% 10%, rgba(200, 162, 200, 0.34), transparent 22%),
-    linear-gradient(180deg, #fff8fa 0%, #fff5f7 40%, #fffaf5 100%);
+  background: linear-gradient(180deg, #f7f8fb 0%, #f4f5f8 60%, #f8f6fa 100%);
 }
 
 .main {
   width: min(1320px, calc(100% - 48px));
   margin: 0 auto;
-  padding: 108px 0 48px;
+  padding: 110px 0 48px;
 }
 
 .hero {
@@ -58,14 +55,13 @@
 .orderCard,
 .messageCard,
 .modalCard {
-  border: 1px solid rgba(255, 255, 255, 0.72);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.74));
-  box-shadow: 0 24px 70px rgba(92, 48, 70, 0.1);
-  backdrop-filter: blur(16px);
+  border: 1px solid #e9e0e7;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(24, 22, 28, 0.06);
 }
 
 .summaryCard {
-  border-radius: 22px;
+  border-radius: 12px;
   padding: 18px 20px;
 }
 
@@ -92,7 +88,7 @@
   gap: 16px;
   padding: 18px;
   margin-top: 22px;
-  border-radius: 24px;
+  border-radius: 12px;
 }
 
 .searchShell {
@@ -111,9 +107,9 @@
 .searchShell input,
 .sortSelect {
   width: 100%;
-  border: 1px solid rgba(214, 167, 190, 0.8);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #e2d8df;
+  border-radius: 10px;
+  background: #ffffff;
   color: #4f3945;
   font: 12px var(--font-poppins), var(--font-manrope), sans-serif;
 }
@@ -144,9 +140,9 @@
 
 .filterChip {
   padding: 10px 14px;
-  border: 1px solid rgba(214, 167, 190, 0.72);
+  border: 1px solid #e2d8df;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.86);
+  background: #ffffff;
   color: #84596d;
   font: 11px var(--font-poppins), var(--font-manrope), sans-serif;
   font-weight: 700;
@@ -169,14 +165,15 @@
 }
 
 .orderCard {
-  border-radius: 26px;
-  padding: 22px;
+  border-radius: 12px;
+  padding: 20px 22px;
 }
 
 .orderTop {
   display: flex;
   justify-content: space-between;
   gap: 20px;
+  align-items: flex-start;
 }
 
 .orderMetaRow {
@@ -188,8 +185,8 @@
 
 .orderNumber {
   margin: 0;
-  color: #d02668;
-  font-size: 11px;
+  color: #6e4f60;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -252,6 +249,10 @@
 .orderAmountBlock {
   min-width: 170px;
   text-align: right;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #f1d4e1;
+  background: #fff5f9;
 }
 
 .orderAmountBlock strong {
@@ -290,7 +291,7 @@
   gap: 8px;
   padding: 10px 14px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.84);
+  background: #f8f3f6;
   color: #7b5f6c;
   font-size: 11px;
 }
@@ -302,7 +303,7 @@
   justify-content: center;
   gap: 8px;
   border: 0;
-  border-radius: 999px;
+  border-radius: 10px;
   font-family: inherit;
   font-size: 11px;
   font-weight: 700;
@@ -312,9 +313,9 @@
 
 .softButton {
   padding: 11px 15px;
-  background: rgba(255, 255, 255, 0.86);
+  background: #ffffff;
   color: #855869;
-  border: 1px solid rgba(214, 167, 190, 0.72);
+  border: 1px solid #e2d8df;
 }
 
 .primaryButton {
@@ -330,7 +331,7 @@
 }
 
 .messageCard {
-  border-radius: 28px;
+  border-radius: 12px;
   padding: 42px 24px;
   text-align: center;
   color: #8b6b7b;

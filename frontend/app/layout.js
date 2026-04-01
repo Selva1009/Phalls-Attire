@@ -4,6 +4,7 @@ import "./landing.css";
 import "./cart.css";
 import "./profile.css";
 import "./favourite.css";
+import "./navbar.css";
 import "./signin.css";
 import ClientWrapper from "./ClinetWrapper";
 
