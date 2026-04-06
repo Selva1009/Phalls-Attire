@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import Swal from "sweetalert2";
-import Footer from "../LandingPage/Footer";
 import { showLogoutSuccess } from "@/lib/authAlerts";
 
 export default function DashboardLayout({ id, children }) {
@@ -569,7 +568,6 @@ export default function DashboardLayout({ id, children }) {
       >
         {children}
       </div>
-      <Footer />
     </div>
   );
 }

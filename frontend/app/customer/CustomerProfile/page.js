@@ -2,50 +2,52 @@
 
 import { API_BASE_URL } from "@/lib/api";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
-  ArrowLeft,
-  Mail,
+  BadgeCheck,
+  Bell,
+  HelpCircle,
+  LockKeyhole,
+  LogOut,
   MapPin,
-  Phone,
-  ShoppingBag,
-  UserRound,
-  Building2,
-  PencilLine,
-  Loader2,
+  Moon,
+  Sun,
   Eye,
   EyeOff,
 } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Swal from "sweetalert2";
 import Footer from "@/app/LandingPage/Footer";
-import { Box } from "@mui/material";
- 
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Divider,
+  FormControlLabel,
+  Switch,
+  TextField,
+} from "@mui/material";
+import NeedHelpModal from "../../Components/NeedHelpModal";
 
-const formatDate = (value) => {
-  if (!value) return "Recently";
-  return new Date(value).toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-};
+const THEME_KEY = "customerTheme";
+const NOTIFICATIONS_KEY = "customerNotifications";
 
-const CustomerProfile = ({ initialSection = "order-history" }) => {
+const CustomerProfile = () => {
   const [customerUser, setCustomerUser] = useState(null);
-  const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ oldPassword: "", newPassword: "" });
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [showOldPassword, setShowOldPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
-  const [activeSection, setActiveSection] = useState("order-history");
   const [addresses, setAddresses] = useState([]);
   const [addressLoading, setAddressLoading] = useState(false);
   const [activeAddressId, setActiveAddressId] = useState(null);
   const [showAllAddresses, setShowAllAddresses] = useState(false);
   const [editingAddressId, setEditingAddressId] = useState(null);
+  const [showHelp, setShowHelp] = useState(false);
+  const [themeMode, setThemeMode] = useState("light");
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [addressForm, setAddressForm] = useState({
     name: "",
     phone: "",
@@ -64,7 +66,7 @@ const CustomerProfile = ({ initialSection = "order-history" }) => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
- 
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     const loadUserData = () => {
@@ -85,11 +87,11 @@ const CustomerProfile = ({ initialSection = "order-history" }) => {
           status: userData.status || "",
           id: userData.id || "",
         });
-    } catch (error) {
-      console.error("Error parsing user data:", error);
-      router.push("/SignIn");
-    }
-  };
+      } catch (error) {
+        console.error("Error parsing user data:", error);
+        router.push("/SignIn");
+      }
+    };
 
     loadUserData();
 
@@ -102,29 +104,30 @@ const CustomerProfile = ({ initialSection = "order-history" }) => {
   }, [router]);
 
   useEffect(() => {
-    const fetchOrders = async () => {
-      const token = localStorage.getItem("token");
-      if (!token) return;
+    const storedTheme = localStorage.getItem(THEME_KEY) || "light";
+    setThemeMode(storedTheme);
+    applyTheme(storedTheme);
 
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/orders`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (response.status === 401) {
-          router.push("/SignIn");
-          return;
-        }
-        const data = await response.json();
-
-        if (response.ok) {
-          setPurchaseOrders(data.purchaseOrders || []);
-        }
-      } catch (error) {
-        console.error("Error fetching purchase orders:", error);
-      }
+    const handleThemeEvent = () => {
+      const fresh = localStorage.getItem(THEME_KEY) || "light";
+      setThemeMode(fresh);
+      applyTheme(fresh);
     };
 
-    fetchOrders();
+    window.addEventListener("storage", handleThemeEvent);
+    window.addEventListener("theme-change", handleThemeEvent);
+    return () => {
+      window.removeEventListener("storage", handleThemeEvent);
+      window.removeEventListener("theme-change", handleThemeEvent);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = localStorage.getItem(NOTIFICATIONS_KEY);
+    if (stored !== null) {
+      setNotificationsEnabled(stored === "true");
+    }
   }, []);
 
   useEffect(() => {
@@ -132,10 +135,6 @@ const CustomerProfile = ({ initialSection = "order-history" }) => {
     const stored = localStorage.getItem("activeAddressId");
     if (stored) setActiveAddressId(Number(stored));
   }, []);
-
-  useEffect(() => {
-    setActiveSection(initialSection);
-  }, [initialSection]);
 
   useEffect(() => {
     const loadAddresses = async () => {
@@ -166,36 +165,26 @@ const CustomerProfile = ({ initialSection = "order-history" }) => {
     loadAddresses();
   }, []);
 
-  const addressSummary = useMemo(() => {
-    const latestOrder = purchaseOrders[0];
-    if (!latestOrder) {
-      return {
-        address: "No address available yet",
-        city: "Add an order to populate this section",
-        country: "India",
-      };
-    }
+  const applyTheme = (mode) => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    root.classList.remove("theme-light", "theme-dark");
+    root.classList.add(mode === "dark" ? "theme-dark" : "theme-light");
+  };
 
-    return {
-      address: latestOrder.ship_to_address || latestOrder.customer_address || "Address pending",
-      city:
-        latestOrder.ship_to_city ||
-        latestOrder.customer_city ||
-        "City pending",
-      country:
-        latestOrder.ship_to_country ||
-        latestOrder.customer_country ||
-        "India",
-      state:
-        latestOrder.ship_to_state ||
-        latestOrder.customer_state ||
-        "State pending",
-      postalCode:
-        latestOrder.ship_to_postal_code ||
-        latestOrder.customer_postal_code ||
-        "Postal code pending",
-    };
-  }, [purchaseOrders]);
+  const handleThemeToggle = (event) => {
+    const nextMode = event.target.checked ? "dark" : "light";
+    setThemeMode(nextMode);
+    localStorage.setItem(THEME_KEY, nextMode);
+    applyTheme(nextMode);
+    window.dispatchEvent(new Event("theme-change"));
+  };
+
+  const handleNotificationsToggle = (event) => {
+    const nextValue = event.target.checked;
+    setNotificationsEnabled(nextValue);
+    localStorage.setItem(NOTIFICATIONS_KEY, nextValue ? "true" : "false");
+  };
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -453,7 +442,6 @@ const CustomerProfile = ({ initialSection = "order-history" }) => {
       }
 
       setPasswordForm({ oldPassword: "", newPassword: "" });
-      setShowPasswordForm(false);
       Swal.fire({
         icon: "success",
         title: "Password updated",
@@ -482,546 +470,545 @@ const CustomerProfile = ({ initialSection = "order-history" }) => {
       { id: "symbol", label: "One special character", ok: /[^A-Za-z0-9]/.test(value) },
     ];
     const passed = rules.filter((rule) => rule.ok).length;
-    const strengthLabel =
-      passed <= 1 ? "Weak" : passed <= 3 ? "Medium" : "Strong";
+    const strengthLabel = passed <= 1 ? "Weak" : passed <= 3 ? "Medium" : "Strong";
     return { rules, passed, strengthLabel };
   }, [passwordForm.newPassword]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("customerUser");
+    router.push("/SignIn");
+  };
+
+  const sectionMeta = {
+    account: {
+      title: "Account",
+      subtitle: "View and update your profile details.",
+    },
+    addresses: {
+      title: "Addresses",
+      subtitle: "Manage your saved delivery addresses.",
+    },
+    security: {
+      title: "Security",
+      subtitle: "Change your password to keep your account safe.",
+    },
+    preferences: {
+      title: "Preferences",
+      subtitle: "Choose light or dark mode and manage notifications.",
+    },
+    support: {
+      title: "Support",
+      subtitle: "Tell us how we can help you.",
+    },
+    actions: {
+      title: "Actions",
+      subtitle: "Sign out of your account.",
+    },
+  };
+  const sectionParam = searchParams.get("section");
+  const activeSection = sectionMeta[sectionParam] ? sectionParam : "account";
+  const headerHiddenSections = new Set(["addresses", "security", "preferences"]);
+  const showHeader = !headerHiddenSections.has(activeSection);
 
   if (!customerUser) {
     return (
       <div className="profile-loading-shell">
-        <Loader2 className="profile-loading-spinner" />
+        <div className="profile-loading-spinner" />
       </div>
     );
   }
 
-  const profileFields = [
-    { label: "Company Name", name: "companyName", icon: Building2, disabled: true },
-    { label: "Contact Person", name: "personName", icon: UserRound },
-    { label: "Email", name: "Email", icon: Mail },
-    { label: "Contact Number", name: "contactNumber", icon: Phone },
-    { label: "Status", name: "status", icon: ShoppingBag, disabled: true },
-  ];
-
-  const renderOrderHistory = () => (
-    <section className="profile-card profile-orders-card">
-      <div className="profile-card-header">
-        <div>
-          <p className="profile-section-label">Order History</p>
-          <h3>Recent orders</h3>
-        </div>
-      </div>
-
-      <div className="profile-order-grid">
-        {purchaseOrders.length > 0 ? (
-          purchaseOrders.slice(0, 6).map((order) => (
-            <article key={order.id} className="profile-order-item">
-              <div className="profile-order-top">
-                <span className="profile-order-badge">Order #{order.id}</span>
-                <span className="profile-order-date">{formatDate(order.order_date)}</span>
-              </div>
-              <h4>{order.items?.[0]?.product_name || "Order item"}</h4>
-              <p>
-                Qty: {order.items?.[0]?.quantity || 1}
-                {" | "}
-                Total: Rs. {Number(order.total_amount || 0).toLocaleString("en-IN")}
-              </p>
-            </article>
-          ))
-        ) : (
-          <div className="profile-empty-orders">
-            No orders yet. Complete a purchase to see it here.
-          </div>
-        )}
-      </div>
-    </section>
-  );
-
   return (
     <>
       <Navbar disableFilters disableSearch />
-      <div className="profile-page account-page">
-        <div className="profile-shell account-shell">
-          <Box className="account-content">
-            <div className="profile-page-header">
-              <button
-                type="button"
-                onClick={() => router.push("/customer/products")}
-                className="profile-back-button"
-              >
-                <ArrowLeft size={18} />
-                <span>Back to products</span>
-              </button>
+      <div className="settings-page">
+        <Box className="settings-shell">
+          {showHeader && (
+            <header className="settings-header">
               <div>
-                <p className="profile-section-label">My Account</p>
-                <h1>Manage your profile, addresses, and orders.</h1>
+                <p className="settings-eyebrow">Settings</p>
+                <h1>{sectionMeta[activeSection].title}</h1>
+                <p className="settings-subtitle">{sectionMeta[activeSection].subtitle}</p>
               </div>
-            </div>
+            </header>
+          )}
 
-            <div className="account-content-scroll">
-              {activeSection === "personal" && (
-                <>
-                  <section className="profile-hero-card">
-                    <div className="profile-avatar-block">
-                      <img src="/User_Icon.jpg" alt="Profile" className="profile-avatar" />
-                      <div>
-                        <h2>{customerUser.personName}</h2>
-                        <p>{customerUser.Email}</p>
-                      </div>
-                    </div>
-
-                    {!isEditing && (
-                      <button
-                        type="button"
-                        onClick={() => setIsEditing(true)}
-                        className="profile-primary-button"
-                      >
-                        <PencilLine size={16} />
-                        <span>Edit Profile</span>
-                      </button>
-                    )}
-                  </section>
-
-                  <div className="profile-grid">
-                    <section className="profile-card">
-                      <div className="profile-card-header">
-                        <div>
-                          <p className="profile-section-label">User Info</p>
-                          <h3>Personal information</h3>
-                        </div>
-                      </div>
-
-                      {!isEditing ? (
-                        <div className="profile-info-grid">
-                          {profileFields.map(({ label, name, icon: Icon }) => (
-                            <div key={name} className="profile-detail-item">
-                              <div className="profile-detail-title">
-                                <Icon size={16} />
-                                <span>{label}</span>
-                              </div>
-                              <p>{customerUser[name] || "Not provided"}</p>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <form onSubmit={handleSave} className="profile-form">
-                          <div className="profile-form-grid">
-                            {profileFields.map(({ label, name, icon: Icon, disabled }) => (
-                              <label key={name} className="profile-field">
-                                <span className="profile-field-label">
-                                  <Icon size={16} />
-                                  <span>{label}</span>
-                                </span>
-                                <input
-                                  name={name}
-                                  type={name === "Email" ? "email" : "text"}
-                                  value={formData[name] || ""}
-                                  onChange={handleChange}
-                                  disabled={disabled}
-                                  required
-                                  className="profile-input"
-                                />
-                              </label>
-                            ))}
-                          </div>
-
-                          <div className="profile-form-actions">
-                            <button
-                              type="button"
-                              className="profile-secondary-button"
-                              onClick={() => {
-                                setFormData(customerUser);
-                                setIsEditing(false);
-                              }}
-                              disabled={isLoading}
-                            >
-                              Cancel
-                            </button>
-                            <button type="submit" className="profile-primary-button" disabled={isLoading}>
-                              {isLoading ? (
-                                <>
-                                  <Loader2 className="profile-inline-spinner" />
-                                  <span>Saving...</span>
-                                </>
-                              ) : (
-                                "Save Changes"
-                              )}
-                            </button>
-                          </div>
-                        </form>
-                      )}
-                    </section>
-
-                    <section className="profile-card">
-                      <div className="profile-card-header">
-                        <div>
-                          <p className="profile-section-label">Address</p>
-                          <h3>Latest delivery details</h3>
-                        </div>
-                        <MapPin size={18} className="profile-muted-icon" />
-                      </div>
-
-                      <div className="profile-address-box">
-                        <p>{addressSummary.address}</p>
-                        <span>
-                          {addressSummary.city}
-                          {addressSummary.state ? `, ${addressSummary.state}` : ""}
-                        </span>
-                        <span>
-                          {addressSummary.country}
-                          {addressSummary.postalCode ? ` - ${addressSummary.postalCode}` : ""}
-                        </span>
-                      </div>
-                    </section>
+          {activeSection === "account" && (
+            <section className="settings-profile-row">
+              <div className="settings-profile-card">
+                <div className="settings-profile-avatar">
+                  <span>
+                    {(customerUser.personName || "U")
+                      .split(" ")
+                      .map((chunk) => chunk[0])
+                      .join("")
+                      .slice(0, 2)
+                      .toUpperCase()}
+                  </span>
+                </div>
+                <div className="settings-profile-meta">
+                  <p className="settings-profile-label">Profile summary</p>
+                  <h2>{customerUser.personName || "Customer"}</h2>
+                  <div className="settings-profile-lines">
+                    <span>{customerUser.Email || "email@phalls.com"}</span>
+                    <span>{customerUser.contactNumber || "Phone not added"}</span>
                   </div>
-                </>
-              )}
+                  <span className="settings-status-chip">
+                    {customerUser.status || "Active"}
+                  </span>
+                </div>
+                <div className="settings-profile-actions">
+                  <Button
+                    type="button"
+                    className="settings-primary"
+                    onClick={() => {
+                      if (isEditing) {
+                        setFormData(customerUser);
+                        setIsEditing(false);
+                      } else {
+                        setIsEditing(true);
+                      }
+                    }}
+                  >
+                    {isEditing ? "Cancel edit" : "Edit profile"}
+                  </Button>
+                </div>
+              </div>
+            </section>
+          )}
 
-              {activeSection === "password" && (
-                <section className="profile-card account-placeholder">
-                  <div className="profile-card-header">
+
+          <div className="settings-grid">
+            {activeSection === "account" && (
+              <Card className="settings-card">
+                <CardContent>
+                  <div className="settings-card-head">
                     <div>
-                      <p className="profile-section-label">Security</p>
-                      <h3>Change password</h3>
+                      <p className="settings-section-label">Account details</p>
+                      <h3>Profile information</h3>
+                      <p>Keep your contact information up-to-date.</p>
                     </div>
                   </div>
-                  <p className="account-placeholder-text">
-                    Keep your account secure by updating your password regularly.
-                  </p>
-                  {!showPasswordForm ? (
-                    <div className="account-placeholder-actions">
+                  <form className="settings-form" onSubmit={handleSave}>
+                    <TextField
+                      label="Company name"
+                      name="companyName"
+                      value={formData.companyName}
+                      onChange={handleChange}
+                      fullWidth
+                      disabled={!isEditing}
+                      className="settings-input"
+                    />
+                    <TextField
+                      label="Contact person"
+                      name="personName"
+                      value={formData.personName}
+                      onChange={handleChange}
+                      fullWidth
+                      disabled={!isEditing}
+                      className="settings-input"
+                    />
+                    <TextField
+                      label="Email"
+                      name="Email"
+                      type="email"
+                      value={formData.Email}
+                      onChange={handleChange}
+                      fullWidth
+                      disabled={!isEditing}
+                      className="settings-input"
+                    />
+                    <TextField
+                      label="Phone number"
+                      name="contactNumber"
+                      value={formData.contactNumber}
+                      onChange={handleChange}
+                      fullWidth
+                      disabled={!isEditing}
+                      className="settings-input"
+                    />
+                    <TextField
+                      label="Status"
+                      name="status"
+                      value={formData.status}
+                      fullWidth
+                      disabled
+                      className="settings-input"
+                    />
+                    {isEditing ? (
+                      <div className="settings-actions">
+                        <Button
+                          type="button"
+                          className="settings-secondary"
+                          onClick={() => {
+                            setFormData(customerUser);
+                            setIsEditing(false);
+                          }}
+                          disabled={isLoading}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="submit"
+                          className="settings-primary"
+                          disabled={isLoading}
+                        >
+                          {isLoading ? "Saving..." : "Save changes"}
+                        </Button>
+                      </div>
+                    ) : null}
+                  </form>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeSection === "addresses" && (
+              <Card className="settings-card">
+                <CardContent>
+                  <div className="settings-card-head">
+                    <div>
+                      <p className="settings-section-label">Address settings</p>
+                      <h3>Saved addresses</h3>
+                      <p>Add, edit, or set a default delivery address.</p>
+                    </div>
+                    <MapPin size={18} />
+                  </div>
+
+                  <form className="settings-address-form" onSubmit={handleAddressSubmit}>
+                    <TextField
+                      label="Name"
+                      name="name"
+                      value={addressForm.name}
+                      onChange={handleAddressChange}
+                      fullWidth
+                      className="settings-input"
+                      required
+                    />
+                    <TextField
+                      label="Phone"
+                      name="phone"
+                      value={addressForm.phone}
+                      onChange={handleAddressChange}
+                      fullWidth
+                      className="settings-input"
+                      required
+                    />
+                    <TextField
+                      label="Address line"
+                      name="address_line"
+                      value={addressForm.address_line}
+                      onChange={handleAddressChange}
+                      fullWidth
+                      multiline
+                      minRows={2}
+                      className="settings-input"
+                      required
+                    />
+                    <div className="settings-address-row">
+                      <TextField
+                        label="City"
+                        name="city"
+                        value={addressForm.city}
+                        onChange={handleAddressChange}
+                        fullWidth
+                        className="settings-input"
+                        required
+                      />
+                      <TextField
+                        label="State"
+                        name="state"
+                        value={addressForm.state}
+                        onChange={handleAddressChange}
+                        fullWidth
+                        className="settings-input"
+                        required
+                      />
+                      <TextField
+                        label="Pincode"
+                        name="pincode"
+                        value={addressForm.pincode}
+                        onChange={handleAddressChange}
+                        fullWidth
+                        className="settings-input"
+                        required
+                      />
+                    </div>
+                    <div className="settings-actions">
+                      {editingAddressId ? (
+                        <Button
+                          type="button"
+                          className="settings-secondary"
+                          onClick={resetAddressForm}
+                        >
+                          Cancel
+                        </Button>
+                      ) : null}
+                      <Button type="submit" className="settings-primary">
+                        {editingAddressId ? "Save changes" : "Add address"}
+                      </Button>
+                    </div>
+                  </form>
+
+                  <Divider className="settings-divider" />
+
+                  {addressLoading ? (
+                    <p className="settings-muted">Loading addresses...</p>
+                  ) : (
+                    <div className="settings-address-list">
+                      {(showAllAddresses ? addresses : addresses.slice(0, 2)).map((address) => (
+                        <Card
+                          key={address.id}
+                          className={`settings-address-card ${
+                            activeAddressId === address.id ? "is-active" : ""
+                          }`}
+                          onClick={() => handleSelectAddress(address)}
+                        >
+                          <CardContent>
+                            <div className="settings-address-head">
+                              <div>
+                                <h4>{address.name}</h4>
+                                <span>{address.phone}</span>
+                              </div>
+                              <BadgeCheck size={18} />
+                            </div>
+                            <p>{address.address_line}</p>
+                            <span>
+                              {address.city}, {address.state} - {address.pincode}
+                            </span>
+                            <div className="settings-actions">
+                              <Button
+                                type="button"
+                                className="settings-secondary"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleAddressEdit(address);
+                                }}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                type="button"
+                                className="settings-danger"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleAddressDelete(address.id);
+                                }}
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                      {addresses.length > 2 ? (
+                        <Button
+                          type="button"
+                          className="settings-ghost"
+                          onClick={() => setShowAllAddresses((prev) => !prev)}
+                        >
+                          {showAllAddresses ? "Show less" : "Show more"}
+                        </Button>
+                      ) : null}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {activeSection === "security" && (
+              <Card className="settings-card">
+                <CardContent>
+                  <div className="settings-card-head">
+                    <div>
+                      <p className="settings-section-label">Security settings</p>
+                      <h3>Change password</h3>
+                      <p>Use a strong password to protect your account.</p>
+                    </div>
+                    <LockKeyhole size={18} />
+                  </div>
+                  <form className="settings-password" onSubmit={handlePasswordSubmit}>
+                    <div className="settings-password-field">
+                      <TextField
+                        label="Old password"
+                        name="oldPassword"
+                        type={showOldPassword ? "text" : "password"}
+                        value={passwordForm.oldPassword}
+                        onChange={handlePasswordChange}
+                        fullWidth
+                        className="settings-input"
+                        required
+                      />
                       <button
                         type="button"
-                        className="profile-primary-button"
-                        onClick={() => setShowPasswordForm(true)}
+                        className="settings-visibility"
+                        onClick={() => setShowOldPassword((prev) => !prev)}
+                        aria-label={showOldPassword ? "Hide password" : "Show password"}
                       >
-                        Update Password
+                        {showOldPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
                     </div>
-                  ) : (
-                    <form className="profile-password-form" onSubmit={handlePasswordSubmit}>
-                      <label className="profile-password-field">
-                        <span>Old Password</span>
-                        <div className="profile-password-input-wrap">
-                          <input
-                            type={showOldPassword ? "text" : "password"}
-                            name="oldPassword"
-                            value={passwordForm.oldPassword}
-                            onChange={handlePasswordChange}
-                            className="profile-password-input"
-                            placeholder="Enter old password"
-                            required
-                          />
-                          <button
-                            type="button"
-                            className="profile-password-toggle"
-                            onClick={() => setShowOldPassword((prev) => !prev)}
-                            aria-label={showOldPassword ? "Hide password" : "Show password"}
-                          >
-                            {showOldPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                          </button>
-                        </div>
-                      </label>
-                      <label className="profile-password-field">
-                        <span>New Password</span>
-                        <div className="profile-password-input-wrap">
-                          <input
-                            type={showNewPassword ? "text" : "password"}
-                            name="newPassword"
-                            value={passwordForm.newPassword}
-                            onChange={handlePasswordChange}
-                            className="profile-password-input"
-                            placeholder="Enter new password"
-                            required
-                          />
-                          <button
-                            type="button"
-                            className="profile-password-toggle"
-                            onClick={() => setShowNewPassword((prev) => !prev)}
-                            aria-label={showNewPassword ? "Hide password" : "Show password"}
-                          >
-                            {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                          </button>
-                        </div>
-                      </label>
-                      <div className="profile-password-rules">
-                        <div className="profile-password-strength">
-                          <span>Strength:</span>
-                          <strong
-                            className={`profile-password-strength-value profile-password-strength-${passwordRules.strengthLabel.toLowerCase()}`}
-                          >
-                            {passwordRules.strengthLabel}
-                          </strong>
-                        </div>
-                        <ul className="profile-password-rule-list">
+                    <div className="settings-password-field">
+                      <TextField
+                        label="New password"
+                        name="newPassword"
+                        type={showNewPassword ? "text" : "password"}
+                        value={passwordForm.newPassword}
+                        onChange={handlePasswordChange}
+                        fullWidth
+                        className="settings-input"
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="settings-visibility"
+                        onClick={() => setShowNewPassword((prev) => !prev)}
+                        aria-label={showNewPassword ? "Hide password" : "Show password"}
+                      >
+                        {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                    <div className="settings-password-rules">
+                      <div>
+                        <p>
+                          Strength: <strong>{passwordRules.strengthLabel}</strong>
+                        </p>
+                        <ul>
                           {passwordRules.rules.map((rule) => (
-                            <li
-                              key={rule.id}
-                              className={rule.ok ? "rule-pass" : "rule-pending"}
-                            >
+                            <li key={rule.id} className={rule.ok ? "pass" : "pending"}>
                               {rule.label}
                             </li>
                           ))}
                         </ul>
                       </div>
-                      <div className="profile-password-actions">
-                        <button
-                          type="button"
-                          className="profile-secondary-button"
-                          onClick={() => {
-                            setShowPasswordForm(false);
-                            setPasswordForm({ oldPassword: "", newPassword: "" });
-                          }}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="submit"
-                          className="profile-primary-button"
-                          disabled={passwordLoading}
-                        >
-                          {passwordLoading ? "Updating..." : "Save Password"}
-                        </button>
-                      </div>
-                    </form>
-                  )}
-                </section>
-              )}
+                    </div>
+                    <div className="settings-actions">
+                      <Button
+                        type="submit"
+                        className="settings-primary"
+                        disabled={passwordLoading}
+                      >
+                        {passwordLoading ? "Updating..." : "Save password"}
+                      </Button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+            )}
 
-              {activeSection === "addresses" && (
-                <section className="profile-card">
-                  <div className="profile-card-header">
+            {activeSection === "preferences" && (
+              <Card className="settings-card">
+                <CardContent>
+                  <div className="settings-card-head">
                     <div>
-                      {/* <p className="profile-section-label">Addresses</p> */}
-                      {/* <h3>Manage delivery addresses</h3> */}
+                      <p className="settings-section-label">Notification settings</p>
+                      <h3>Show notifications</h3>
+                      <p>Control if we send you updates.</p>
+                    </div>
+                    <Bell size={18} />
+                  </div>
+                  <div className="settings-toggle-list">
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={notificationsEnabled}
+                          onChange={handleNotificationsToggle}
+                        />
+                      }
+                      label="Show notifications"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeSection === "preferences" && (
+              <Card className="settings-card">
+                <CardContent>
+                  <div className="settings-card-head">
+                    <div>
+                      <p className="settings-section-label">Theme settings</p>
+                      <h3>Light / Dark mode</h3>
+                      <p>Switch between light and dark mode.</p>
+                    </div>
+                    {themeMode === "dark" ? <Moon size={18} /> : <Sun size={18} />}
+                  </div>
+                  <FormControlLabel
+                    className="settings-theme-toggle"
+                    control={<Switch checked={themeMode === "dark"} onChange={handleThemeToggle} />}
+                    label={themeMode === "dark" ? "Dark mode" : "Light mode"}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
+            {activeSection === "support" && (
+              <Card className="settings-card">
+                <CardContent>
+                  <div className="settings-card-head">
+                    <div>
+                      <p className="settings-section-label">Support</p>
+                      <h3>Need help?</h3>
+                      <p>Use the support form and we will assist you.</p>
+                    </div>
+                    <HelpCircle size={18} />
+                  </div>
+                  <div className="settings-row-list">
+                    <div className="settings-row-item">
+                      <div>
+                        <h4>Contact support</h4>
+                        <p>Tell us what you need help with.</p>
+                      </div>
+                      <Button
+                        type="button"
+                        className="settings-primary"
+                        onClick={() => setShowHelp(true)}
+                      >
+                        Need help
+                      </Button>
                     </div>
                   </div>
-                  {/* <div className="profile-address-layout"> */}
-                    <form className="profile-address-form" onSubmit={handleAddressSubmit}>
-                      <div className="profile-address-form-head">
-                        <div>
-                          <h4>{editingAddressId ? "Edit address" : "Add new address"}</h4>
-                          <p>Save a delivery address so checkout feels effortless.</p>
-                        </div>
-                        <span className="profile-address-chip">
-                          {editingAddressId ? "Updating" : "New"}
-                        </span>
-                      </div>
+                </CardContent>
+              </Card>
+            )}
 
-                      <div className="profile-address-form-grid">
-                        <label className="profile-address-field">
-                          <span>Name</span>
-                          <input
-                            name="name"
-                            value={addressForm.name}
-                            onChange={handleAddressChange}
-                            required
-                            className="profile-address-input"
-                            placeholder="Full name"
-                          />
-                        </label>
-                        <label className="profile-address-field">
-                          <span>Phone</span>
-                          <input
-                            name="phone"
-                            value={addressForm.phone}
-                            onChange={handleAddressChange}
-                            required
-                            className="profile-address-input"
-                            placeholder="Phone number"
-                          />
-                        </label>
-                        <label className="profile-address-field profile-address-field-full">
-                          <span>Address line</span>
-                          <textarea
-                            name="address_line"
-                            value={addressForm.address_line}
-                            onChange={handleAddressChange}
-                            required
-                            className="profile-address-textarea"
-                            placeholder="House number, street, area"
-                          />
-                        </label>
-                        <label className="profile-address-field">
-                          <span>City</span>
-                          <input
-                            name="city"
-                            value={addressForm.city}
-                            onChange={handleAddressChange}
-                            required
-                            className="profile-address-input"
-                            placeholder="City"
-                          />
-                        </label>
-                        <label className="profile-address-field">
-                          <span>State</span>
-                          <input
-                            name="state"
-                            value={addressForm.state}
-                            onChange={handleAddressChange}
-                            required
-                            className="profile-address-input"
-                            placeholder="State"
-                          />
-                        </label>
-                        <label className="profile-address-field">
-                          <span>Pincode</span>
-                          <input
-                            name="pincode"
-                            value={addressForm.pincode}
-                            onChange={handleAddressChange}
-                            required
-                            className="profile-address-input"
-                            placeholder="Pincode"
-                          />
-                        </label>
-                      </div>
-
-                      <div className="profile-address-actions">
-                        {editingAddressId && (
-                          <button
-                            type="button"
-                            className="profile-address-action profile-address-action-ghost"
-                            onClick={resetAddressForm}
-                          >
-                            Cancel
-                          </button>
-                        )}
-                        <button type="submit" className="profile-address-action profile-address-action-primary">
-                          {editingAddressId ? "Save changes" : "Add address"}
-                        </button>
-                      </div>
-                    </form>
-
-                    <div className="profile-address-list">
-                      <div className="profile-address-list-head">
-                        <div>
-                          <h4>Saved addresses</h4>
-                          {/* <p>Keep at least one address on file for faster checkout.</p> */}
-                        </div>
-                        <span>{addresses.length}</span>
-                      </div>
-
-                      {addressLoading ? (
-                        <div className="profile-address-empty">Loading addresses...</div>
-                      ) : addresses.length > 0 ? (
-                        <>
-                          <div className="profile-address-cards">
-                            {(showAllAddresses ? addresses : addresses.slice(0, 2)).map((address) => (
-                              <article
-                                key={address.id}
-                                className={`profile-address-card ${
-                                  activeAddressId === address.id ? "profile-address-card-active" : ""
-                                }`}
-                                onClick={() => handleSelectAddress(address)}
-                                role="button"
-                                tabIndex={0}
-                                onKeyDown={(event) => {
-                                  if (event.key === "Enter") handleSelectAddress(address);
-                                }}
-                              >
-                                <div className="profile-address-card-top">
-                                  <div>
-                                    <h5>{address.name}</h5>
-                                    <p>{address.phone}</p>
-                                  </div>
-                                  <span className="profile-address-badge">
-                                    {activeAddressId === address.id ? "Active" : `#${address.id}`}
-                                  </span>
-                                </div>
-                                <div className="profile-address-card-body">
-                                  <p>{address.address_line}</p>
-                                  <span>
-                                    {address.city}, {address.state} - {address.pincode}
-                                  </span>
-                                </div>
-                                <div className="profile-address-card-actions">
-                                  <button
-                                    type="button"
-                                    className="profile-address-action profile-address-action-ghost"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      handleAddressEdit(address);
-                                    }}
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="profile-address-action profile-address-action-danger"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      handleAddressDelete(address.id);
-                                    }}
-                                  >
-                                    Delete
-                                  </button>
-                                </div>
-                              </article>
-                            ))}
-                          </div>
-                          {addresses.length > 2 && !showAllAddresses && (
-                            <button
-                              type="button"
-                              className="profile-address-showmore"
-                              onClick={() => setShowAllAddresses(true)}
-                            >
-                              Show more
-                            </button>
-                          )}
-                          {addresses.length > 2 && showAllAddresses && (
-                            <button
-                              type="button"
-                              className="profile-address-showmore"
-                              onClick={() => setShowAllAddresses(false)}
-                            >
-                              Show less
-                            </button>
-                          )}
-                        </>
-                      ) : (
-                        <div className="profile-address-empty">
-                          No saved addresses yet. Add one to get started.
-                        </div>
-                      )}
-                    </div>
-                  {/* </div> */}
-                </section>
-              )}
-
-              {activeSection === "wishlist" && (
-                <section className="profile-card account-placeholder">
-                  <div className="profile-card-header">
+            {activeSection === "actions" && (
+              <Card className="settings-card">
+                <CardContent>
+                  <div className="settings-card-head">
                     <div>
-                      <p className="profile-section-label">Wishlist</p>
-                      <h3>Your saved picks</h3>
+                      <p className="settings-section-label">Actions</p>
+                      <h3>Log out</h3>
+                      <p>Sign out of your account on this device.</p>
+                    </div>
+                    <LogOut size={18} />
+                  </div>
+                  <div className="settings-row-list">
+                    <div className="settings-row-item">
+                      <div>
+                        <h4>Logout</h4>
+                        <p>You can sign in again anytime.</p>
+                      </div>
+                      <Button type="button" className="settings-danger" onClick={handleLogout}>
+                        Logout
+                      </Button>
                     </div>
                   </div>
-                  <p className="account-placeholder-text">
-                    Your wishlist items will appear here once you start saving products.
-                  </p>
-                </section>
-              )}
-
-              {activeSection === "order-history" && renderOrderHistory()}
-
-              {activeSection === "transactions" && (
-                <section className="profile-card account-placeholder">
-                  <div className="profile-card-header">
-                    <div>
-                      <p className="profile-section-label">Transactions</p>
-                      <h3>Payment history</h3>
-                    </div>
-                  </div>
-                  <p className="account-placeholder-text">
-                    Transaction details will be shown here when available from the backend.
-                  </p>
-                </section>
-              )}
-            </div>
-          </Box>
-        </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </Box>
       </div>
+      <NeedHelpModal
+        open={showHelp}
+        onClose={() => setShowHelp(false)}
+        title="Account support"
+        description="Tell us what you need help with and our team will assist you."
+        email="support@phalls.com"
+        phone="+91 90000 11122"
+        orderNumber={null}
+      />
       <Footer />
     </>
   );

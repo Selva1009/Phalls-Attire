@@ -1,6 +1,5 @@
 import React from "react";
 import Navbar from "./Navbar";
-import Footer from "./Footer";
 
 const PrivacyPolicy = () => {
   return (
@@ -169,9 +168,9 @@ const PrivacyPolicy = () => {
         </div>
       </div>
 
-      <Footer />
     </div>
   );
 };
 
 export default PrivacyPolicy;
+import Footer from "./Footer";

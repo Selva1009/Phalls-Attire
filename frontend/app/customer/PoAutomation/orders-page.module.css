@@ -169,6 +169,11 @@
   padding: 20px 22px;
 }
 
+.orderCardCancelled {
+  border-color: rgba(218, 40, 76, 0.7);
+  background: linear-gradient(180deg, #fff6f7 0%, #ffecef 100%);
+}
+
 .orderTop {
   display: flex;
   justify-content: space-between;
@@ -230,6 +235,24 @@
   background: #fff0f3;
   color: #c23862;
   border-color: #f3cad7;
+}
+
+.statusReturned {
+  background: #fff4f7;
+  color: #a1486a;
+  border-color: #f0cfe0;
+}
+
+.statusRefunded {
+  background: #f7f0ff;
+  color: #6f47b8;
+  border-color: #e1d0f6;
+}
+
+.statusFailed {
+  background: #fdecee;
+  color: #b13b54;
+  border-color: #f3c7d2;
 }
 
 .orderTitle {
@@ -557,6 +580,369 @@
   margin-top: 22px;
 }
 
+.historyPage {
+  min-height: 100vh;
+  background: radial-gradient(circle at top, #fff1f6 0%, #fff7fb 45%, #fffaf8 100%);
+}
+
+.historyMain {
+  width: min(1320px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 110px 0 60px;
+}
+
+.historyHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.historyEyebrow {
+  display: inline-flex;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: #ffe9f1;
+  color: #b24f7c;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+}
+
+.historyTitle {
+  margin: 18px 0 0;
+  color: #2f2430;
+  font-family: var(--font-playfair);
+  font-size: clamp(2.2rem, 3.6vw, 3.2rem);
+}
+
+.historySubtitle {
+  margin: 12px 0 0;
+  color: #6f5464;
+  font-size: 13px;
+  max-width: 520px;
+}
+
+.historyHeaderActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.headerSearch {
+  position: relative;
+  min-width: 240px;
+}
+
+.headerSearchIcon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  color: #c0799a;
+}
+
+.headerSearch input {
+  height: 42px;
+  padding: 0 14px 0 38px;
+  border-radius: 999px;
+  border: 1px solid #efd9e4;
+  background: #fff;
+  font-size: 12px;
+  color: #4e3947;
+}
+
+.headerSearch input:focus {
+  outline: none;
+  border-color: #e91e63;
+  box-shadow: 0 0 0 4px rgba(233, 30, 99, 0.12);
+}
+
+.headerFilterButton,
+.headerDateInput {
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid #efd9e4;
+  background: #fff;
+  padding: 0 18px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #a06b86;
+}
+
+.headerFilterButton {
+  cursor: not-allowed;
+}
+
+.historyStats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 28px;
+}
+
+.historyStatCard {
+  border-radius: 16px;
+  padding: 18px 20px;
+  border: 1px solid #f0dbe4;
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgba(234, 177, 200, 0.18);
+}
+
+.historyStatCard p {
+  margin: 0;
+  color: #b06a8e;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.historyStatCard strong {
+  display: block;
+  margin-top: 10px;
+  color: #2f2430;
+  font-size: 22px;
+}
+
+.historyToolbar {
+  display: grid;
+  grid-template-columns: 1.6fr 0.7fr 0.7fr 0.7fr auto;
+  gap: 12px;
+  margin-top: 26px;
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid #f0dbe4;
+  background: #fff;
+  box-shadow: 0 12px 26px rgba(234, 177, 200, 0.16);
+}
+
+.toolbarSearch {
+  position: relative;
+}
+
+.toolbarSearchIcon {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  transform: translateY(-50%);
+  color: #c0799a;
+}
+
+.toolbarSearch input,
+.toolbarSelect,
+.toolbarDateInput {
+  height: 44px;
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid #efd9e4;
+  background: #fff;
+  color: #4e3947;
+  font-size: 12px;
+  padding: 0 14px;
+}
+
+.toolbarSearch input {
+  padding-left: 40px;
+}
+
+.toolbarSelect:focus,
+.toolbarSearch input:focus {
+  outline: none;
+  border-color: #e91e63;
+  box-shadow: 0 0 0 4px rgba(233, 30, 99, 0.12);
+}
+
+.toolbarClear {
+  height: 44px;
+  border-radius: 12px;
+  border: 0;
+  background: #ffe9f1;
+  color: #a24b74;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.toolbarClear:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.toolbarClear:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(233, 30, 99, 0.18);
+}
+
+.historyTableCard {
+  margin-top: 24px;
+  border-radius: 20px;
+  border: 1px solid #f0dbe4;
+  background: #fff;
+  box-shadow: 0 18px 40px rgba(233, 30, 99, 0.12);
+  padding: 6px 6px 20px;
+}
+
+.historyTableWrap {
+  width: 100%;
+  overflow: auto;
+}
+
+.historyTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 960px;
+}
+
+.historyTable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #fff5f9;
+  color: #9a5a7c;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-align: left;
+  padding: 18px 16px;
+  border-bottom: 1px solid #f3d9e6;
+}
+
+.historyTable tbody td {
+  padding: 18px 16px;
+  font-size: 12px;
+  color: #4e3947;
+  border-bottom: 1px solid #f6e4ee;
+  vertical-align: middle;
+}
+
+.historyTable tbody tr:hover {
+  background: #fff6fa;
+}
+
+.cellOrderId span {
+  display: block;
+  font-weight: 700;
+  color: #2f2430;
+}
+
+.cellOrderId small,
+.cellSummary small {
+  display: block;
+  margin-top: 6px;
+  color: #9d7489;
+  font-size: 11px;
+}
+
+.cellSummary span {
+  display: block;
+  font-weight: 600;
+  color: #3d2b38;
+}
+
+.cellAmount {
+  font-weight: 700;
+  color: #2f2430;
+}
+
+.tableLink {
+  border: 0;
+  background: transparent;
+  color: #b24f7c;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.tableActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tableAction {
+  border: 1px solid #efd9e4;
+  background: #fff;
+  color: #9b5878;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 8px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tableAction:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(233, 30, 99, 0.18);
+}
+
+.historyCardsMobile {
+  display: none;
+  gap: 14px;
+  padding: 16px;
+}
+
+.historyMobileCard {
+  border-radius: 18px;
+  border: 1px solid #f0dbe4;
+  background: #fff;
+  padding: 16px;
+  box-shadow: 0 12px 24px rgba(233, 30, 99, 0.12);
+}
+
+.mobileCardTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.mobileCardTop p {
+  margin: 0;
+  font-weight: 700;
+  color: #2f2430;
+  font-size: 12px;
+}
+
+.mobileCardTop span {
+  color: #9d7489;
+  font-size: 11px;
+}
+
+.mobileCardBody {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.mobileCardBody h4 {
+  margin: 0 0 6px;
+  color: #2f2430;
+  font-size: 13px;
+}
+
+.mobileCardBody span {
+  color: #9d7489;
+  font-size: 11px;
+}
+
+.mobileCardBody strong {
+  color: #2f2430;
+}
+
+.mobileCardActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -566,6 +952,14 @@
 @media (max-width: 1200px) {
   .summaryGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .historyStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .historyToolbar {
+    grid-template-columns: 1fr 1fr;
   }
 
   .modalGrid {
@@ -580,6 +974,27 @@
   .modalStatusRow {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .historyHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .historyHeaderActions {
+    width: 100%;
+  }
+
+  .historyToolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .historyTableWrap {
+    display: none;
+  }
+
+  .historyCardsMobile {
+    display: grid;
   }
 
   .sortSelect {
@@ -599,6 +1014,15 @@
   }
 
   .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .historyMain {
+    width: min(calc(100% - 16px), 100%);
+    padding-top: 88px;
+  }
+
+  .historyStats {
     grid-template-columns: 1fr;
   }
 

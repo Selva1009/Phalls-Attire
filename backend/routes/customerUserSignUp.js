@@ -7,9 +7,9 @@ const router = express.Router();
 // Create customer user (no adminID required anymore)
 router.post("/customerUser", async (req, res) => {
   try {
-    const { companyName, personName, contactNumber, Email, password } = req.body;
+    const { personName, contactNumber, Email, password } = req.body;
 
-    if (!companyName || !personName || !contactNumber || !Email || !password) {
+    if (!personName || !contactNumber || !Email || !password) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
@@ -25,9 +25,9 @@ router.post("/customerUser", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const [insertResult] = await db.query(
-      `INSERT INTO customerusersignup (companyName, personName, contactNumber, Email, password)
-       VALUES (?, ?, ?, ?, ?)`,
-      [companyName, personName, contactNumber, Email, hashedPassword]
+      `INSERT INTO customerusersignup (personName, contactNumber, Email, password)
+       VALUES (?, ?, ?, ?)`,
+      [personName, contactNumber, Email, hashedPassword]
     );
     if (!insertResult.affectedRows) {
       return res.status(500).json({ message: "Failed to register user" });
@@ -44,7 +44,7 @@ router.post("/customerUser", async (req, res) => {
 router.get("/all-users", async (req, res) => {
   try {
     const [users] = await db.query(
-      `SELECT id, companyName, personName, Email, contactNumber, status, created_at AS createdAt
+      `SELECT id, personName, Email, contactNumber, status, created_at AS createdAt
        FROM customerusersignup
        ORDER BY created_at DESC`
     );
@@ -81,12 +81,11 @@ router.delete("/users/:id", async (req, res) => {
 router.put("/users/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { companyName, personName, Email, contactNumber, status } = req.body;
+    const { personName, Email, contactNumber, status } = req.body;
 
     if (
       !requireFields(res, {
         id,
-        companyName,
         personName,
         Email,
         contactNumber,
@@ -107,9 +106,9 @@ router.put("/users/:id", async (req, res) => {
 
     const [updateResult] = await db.query(
       `UPDATE customerusersignup
-       SET companyName = ?, personName = ?, Email = ?, contactNumber = ?, status = ?, updated_at = NOW()
+       SET personName = ?, Email = ?, contactNumber = ?, status = ?, updated_at = NOW()
        WHERE id = ?`,
-      [companyName, personName, Email, contactNumber, status, id]
+      [personName, Email, contactNumber, status, id]
     );
     if (!updateResult.affectedRows) {
       return res.status(404).json({ message: "User not found" });
@@ -136,7 +135,7 @@ router.get("/users/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const [rows] = await db.query(
-      "SELECT id, companyName, personName, Email, contactNumber, status, created_at FROM customerusersignup WHERE id = ?",
+      "SELECT id, personName, Email, contactNumber, status, created_at FROM customerusersignup WHERE id = ?",
       [id]
     );
 
@@ -155,12 +154,11 @@ router.get("/users/:id", async (req, res) => {
 router.put("/update-profile/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { companyName, personName, contactNumber, Email } = req.body;
+    const { personName, contactNumber, Email } = req.body;
 
     if (
       !requireFields(res, {
         id,
-        companyName,
         personName,
         contactNumber,
         Email,
@@ -171,9 +169,9 @@ router.put("/update-profile/:id", async (req, res) => {
 
     const [updateResult] = await db.query(
       `UPDATE customerusersignup
-       SET companyName = ?, personName = ?, contactNumber = ?, Email = ?, updated_at = NOW()
+       SET personName = ?, contactNumber = ?, Email = ?, updated_at = NOW()
        WHERE id = ?`,
-      [companyName, personName, contactNumber, Email, id]
+      [personName, contactNumber, Email, id]
     );
     if (!updateResult.affectedRows) {
       return res.status(404).json({ message: "User not found" });

@@ -12,12 +12,20 @@ import {
   ShoppingBag,
   X,
 } from "lucide-react";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import Navbar from "../components/Navbar";
-import Footer from "@/app/LandingPage/Footer";
 import styles from "./orders-page.module.css";
+import NeedHelpModal from "../../components/NeedHelpModal";
 
 const ACTIVE_STATUSES = ["pending", "processing", "approved", "shipped"];
+const HISTORY_STATUSES = [
+  "delivered",
+  "completed",
+  "cancelled",
+  "returned",
+  "refunded",
+  "failed",
+];
 
 const statusMap = {
   pending: {
@@ -62,6 +70,24 @@ const statusMap = {
     step: 0,
     note: "This order was cancelled.",
   },
+  returned: {
+    label: "Returned",
+    tone: styles.statusReturned,
+    step: 0,
+    note: "This order was returned.",
+  },
+  refunded: {
+    label: "Refunded",
+    tone: styles.statusRefunded,
+    step: 0,
+    note: "Refund has been processed.",
+  },
+  failed: {
+    label: "Failed",
+    tone: styles.statusFailed,
+    step: 0,
+    note: "Payment failed or order did not complete.",
+  },
 };
 
 const timelineSteps = ["Placed", "Processing", "Shipped", "Delivered"];
@@ -102,6 +128,28 @@ const buildSearchText = (order) =>
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
+
+const getItemSummary = (order) => {
+  const items = order.items || [];
+  if (!items.length) return "Order items";
+  const names = items.map((item) => item.product_name).filter(Boolean);
+  if (!names.length) return "Order items";
+  if (names.length === 1) return names[0];
+  return `${names[0]} +${names.length - 1} more`;
+};
+
+const getItemQuantity = (order) =>
+  (order.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+
+const getPaymentLabel = (order) =>
+  order.payment_method || order.payment_status || order.paymentMode || "—";
+
+const getLastUpdate = (order) =>
+  order.delivered_date ||
+  order.updated_at ||
+  order.last_updated ||
+  order.order_date ||
+  "";
 
 function OrderDetailModal({
   order,
@@ -235,8 +283,9 @@ function OrderDetailModal({
   );
 }
 
-export default function OrdersPage() {
+export default function OrdersPage({ variant = "orders" }) {
   const router = useRouter();
+  const isHistory = variant === "history";
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -244,7 +293,11 @@ export default function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState("recent");
   const [downloading, setDownloading] = useState({});
+  const [cancelling, setCancelling] = useState({});
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [helpOrder, setHelpOrder] = useState(null);
+  const supportEmail = "phalls.attire@gmail.com";
+  const supportPhone = "+91 7502579670";
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -287,22 +340,68 @@ export default function OrdersPage() {
     fetchOrders();
   }, []);
 
+  const scopedOrders = useMemo(() => {
+    if (!isHistory) return orders;
+    return orders.filter((order) =>
+      HISTORY_STATUSES.includes(normalizeStatus(order.status))
+    );
+  }, [orders, isHistory]);
+
+  const historyStatusOptions = useMemo(() => {
+    if (!isHistory) return [];
+    const available = new Set(scopedOrders.map((order) => normalizeStatus(order.status)));
+    const base = [
+      { key: "all", label: "All statuses" },
+      { key: "delivered", label: "Delivered" },
+      { key: "cancelled", label: "Cancelled" },
+      { key: "returned", label: "Returned" },
+      { key: "refunded", label: "Refunded" },
+      { key: "failed", label: "Failed" },
+    ];
+    return base.filter(
+      (option) => option.key === "all" || available.has(option.key)
+    );
+  }, [scopedOrders, isHistory]);
+
   const summary = useMemo(() => {
-    const total = orders.length;
-    const active = orders.filter((order) => ACTIVE_STATUSES.includes(normalizeStatus(order.status))).length;
-    const delivered = orders.filter((order) =>
+    const total = scopedOrders.length;
+    const active = scopedOrders.filter((order) =>
+      ACTIVE_STATUSES.includes(normalizeStatus(order.status))
+    ).length;
+    const delivered = scopedOrders.filter((order) =>
       ["delivered", "completed"].includes(normalizeStatus(order.status))
     ).length;
-    const totalSpent = orders.reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
+    const cancelled = scopedOrders.filter(
+      (order) => normalizeStatus(order.status) === "cancelled"
+    ).length;
+    const returned = scopedOrders.filter((order) =>
+      ["returned", "refunded"].includes(normalizeStatus(order.status))
+    ).length;
+    const totalSpent = scopedOrders.reduce(
+      (sum, order) => sum + Number(order.total_amount || 0),
+      0
+    );
 
-    return { total, active, delivered, totalSpent };
-  }, [orders]);
+    return { total, active, delivered, cancelled, returned, totalSpent };
+  }, [scopedOrders]);
 
   const filteredOrders = useMemo(() => {
-    const filtered = orders.filter((order) => {
+    const filtered = scopedOrders.filter((order) => {
       const matchesSearch = buildSearchText(order).includes(searchQuery.trim().toLowerCase());
-      const matchesStatus =
-        statusFilter === "all" || normalizeStatus(order.status) === statusFilter;
+      const normalizedStatus = normalizeStatus(order.status);
+      const matchesStatus = isHistory
+        ? statusFilter === "all"
+          ? true
+          : statusFilter === "delivered"
+            ? ["delivered", "completed"].includes(normalizedStatus)
+            : statusFilter === "cancelled"
+              ? normalizedStatus === "cancelled"
+              : statusFilter === "returned"
+                ? normalizedStatus === "returned"
+                : statusFilter === "refunded"
+                  ? normalizedStatus === "refunded"
+                  : normalizedStatus === "failed"
+        : statusFilter === "all" || normalizedStatus === statusFilter;
 
       return matchesSearch && matchesStatus;
     });
@@ -321,17 +420,13 @@ export default function OrdersPage() {
     });
 
     return filtered;
-  }, [orders, searchQuery, sortBy, statusFilter]);
+  }, [scopedOrders, searchQuery, sortBy, statusFilter, isHistory]);
 
   const handleDownloadInvoice = async (orderId) => {
     setDownloading((current) => ({ ...current, [orderId]: true }));
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/po/generate-pdf/${orderId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
+      const response = await fetch(`${API_BASE_URL}/api/po/generate-pdf/${orderId}`);
 
       if (!response.ok) {
         const errorText = await response.text().catch(() => "");
@@ -377,7 +472,39 @@ export default function OrdersPage() {
   };
 
   const handleNeedHelp = (order) => {
-    toast.info(`Support placeholder for Order #${formatOrderNumber(order.po_number, order.id)}`);
+    setHelpOrder(order);
+  };
+
+  const handleCancelOrder = async (order) => {
+    const orderId = order?.id;
+    if (!orderId) return;
+    const status = normalizeStatus(order.status);
+    if (["cancelled", "delivered", "completed"].includes(status)) {
+      toast.info("This order can no longer be cancelled.");
+      return;
+    }
+
+    setCancelling((current) => ({ ...current, [orderId]: true }));
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/orders/${orderId}/cancel`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to cancel order");
+      }
+      setOrders((current) =>
+        current.map((item) =>
+          item.id === orderId ? { ...item, status: "cancelled" } : item
+        )
+      );
+      toast.success("Order cancelled successfully.");
+    } catch (error) {
+      toast.error(error.message || "Failed to cancel order");
+    } finally {
+      setCancelling((current) => ({ ...current, [orderId]: false }));
+    }
   };
 
   if (loading) {
@@ -385,6 +512,296 @@ export default function OrdersPage() {
       <div className={styles.loadingShell}>
         <Loader2 className={styles.loadingSpinner} />
       </div>
+    );
+  }
+
+  if (isHistory) {
+    return (
+      <>
+        <Navbar disableFilters disableSearch />
+        <div className={styles.historyPage}>
+          <main className={styles.historyMain}>
+            <header className={styles.historyHeader}>
+              <div>
+                <span className={styles.historyEyebrow}>Order History</span>
+                <h1 className={styles.historyTitle}>Order History</h1>
+                <p className={styles.historySubtitle}>
+                  Review all previous purchases and order records.
+                </p>
+              </div>
+              <div className={styles.historyHeaderActions}>
+                <div className={styles.headerSearch}>
+                  <Search size={16} className={styles.headerSearchIcon} />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search order ID, product, seller..."
+                  />
+                </div>
+                <button type="button" className={styles.headerFilterButton} disabled>
+                  Filters
+                </button>
+                <input
+                  type="text"
+                  className={styles.headerDateInput}
+                  placeholder="Select date"
+                  disabled
+                />
+              </div>
+            </header>
+
+            <section className={styles.historyStats}>
+              <article className={styles.historyStatCard}>
+                <p>Total Orders</p>
+                <strong>{summary.total}</strong>
+              </article>
+              <article className={styles.historyStatCard}>
+                <p>Delivered Orders</p>
+                <strong>{summary.delivered}</strong>
+              </article>
+              <article className={styles.historyStatCard}>
+                <p>Cancelled Orders</p>
+                <strong>{summary.cancelled}</strong>
+              </article>
+              <article className={styles.historyStatCard}>
+                <p>Returned / Refunded</p>
+                <strong>{summary.returned}</strong>
+              </article>
+            </section>
+
+            <section className={styles.historyToolbar}>
+              <div className={styles.toolbarSearch}>
+                <Search size={16} className={styles.toolbarSearchIcon} />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search order ID, item, or seller"
+                />
+              </div>
+              <select
+                className={styles.toolbarSelect}
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+              >
+                {historyStatusOptions.map((option) => (
+                  <option key={option.key} value={option.key}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                className={styles.toolbarSelect}
+                value={sortBy}
+                onChange={(event) => setSortBy(event.target.value)}
+              >
+                <option value="recent">Most Recent</option>
+                <option value="oldest">Oldest First</option>
+                <option value="amount_high">Amount: High to Low</option>
+                <option value="amount_low">Amount: Low to High</option>
+              </select>
+              <input
+                type="text"
+                className={styles.toolbarDateInput}
+                placeholder="Date range"
+                disabled
+              />
+              <button
+                type="button"
+                className={styles.toolbarClear}
+                onClick={() => {
+                  setSearchQuery("");
+                  setStatusFilter("all");
+                  setSortBy("recent");
+                }}
+                disabled={searchQuery.length === 0 && statusFilter === "all" && sortBy === "recent"}
+              >
+                Clear filters
+              </button>
+            </section>
+
+            {error && <div className={styles.messageCard}>{error}</div>}
+
+            {!error && (
+              <section className={styles.historyTableCard}>
+                <div className={styles.historyTableWrap}>
+                  <table className={styles.historyTable}>
+                    <thead>
+                      <tr>
+                        <th>Order ID</th>
+                        <th>Order Date</th>
+                        <th>Product Summary</th>
+                        <th>Qty</th>
+                        <th>Total</th>
+                        <th>Payment</th>
+                        <th>Status</th>
+                        <th>Last Update</th>
+                        <th>Invoice</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredOrders.length > 0 ? (
+                        filteredOrders.map((order) => {
+                          const statusMeta = getStatusMeta(order.status);
+                          const paymentLabel = getPaymentLabel(order);
+                          const lastUpdate = getLastUpdate(order);
+                          const qty = getItemQuantity(order);
+                          return (
+                            <tr key={order.id}>
+                              <td>
+                                <div className={styles.cellOrderId}>
+                                  <span>#{formatOrderNumber(order.po_number, order.id)}</span>
+                                  <small>{order.customer_company || order.customer_name || "Customer"}</small>
+                                </div>
+                              </td>
+                              <td>{formatDate(order.order_date)}</td>
+                              <td className={styles.cellSummary}>
+                                <span>{getItemSummary(order)}</span>
+                                <small>
+                                  {order.items?.[0]?.vendor_name || "Seller"}
+                                </small>
+                              </td>
+                              <td>{qty || order.items?.length || 0}</td>
+                              <td className={styles.cellAmount}>
+                                {formatCurrency(order.total_amount)}
+                              </td>
+                              <td>{paymentLabel}</td>
+                              <td>
+                                <span className={`${styles.statusBadge} ${statusMeta.tone}`}>
+                                  {statusMeta.label}
+                                </span>
+                              </td>
+                              <td>{lastUpdate ? formatDate(lastUpdate) : "—"}</td>
+                              <td>
+                                <button
+                                  type="button"
+                                  className={styles.tableLink}
+                                  onClick={() => handleDownloadInvoice(order.id)}
+                                  disabled={downloading[order.id]}
+                                >
+                                  {downloading[order.id] ? (
+                                    <Loader2 className={styles.inlineSpinner} size={14} />
+                                  ) : null}
+                                  Invoice
+                                </button>
+                              </td>
+                              <td>
+                                <div className={styles.tableActions}>
+                                  <button
+                                    type="button"
+                                    className={styles.tableAction}
+                                    onClick={() => setSelectedOrder(order)}
+                                  >
+                                    View
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={styles.tableAction}
+                                    onClick={() => handleBuyAgain(order)}
+                                  >
+                                    Reorder
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan={10}>
+                            <div className={styles.messageCard}>
+                              {scopedOrders.length === 0
+                                ? "No order history yet. Delivered and cancelled orders appear here."
+                                : "No orders matched your current search or filter."}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {filteredOrders.length > 0 && (
+                  <div className={styles.historyCardsMobile}>
+                    {filteredOrders.map((order) => {
+                      const statusMeta = getStatusMeta(order.status);
+                      return (
+                        <article key={`card-${order.id}`} className={styles.historyMobileCard}>
+                          <div className={styles.mobileCardTop}>
+                            <div>
+                              <p>Order #{formatOrderNumber(order.po_number, order.id)}</p>
+                              <span>{formatDate(order.order_date)}</span>
+                            </div>
+                            <span className={`${styles.statusBadge} ${statusMeta.tone}`}>
+                              {statusMeta.label}
+                            </span>
+                          </div>
+                          <div className={styles.mobileCardBody}>
+                            <div>
+                              <h4>{getItemSummary(order)}</h4>
+                              <span>{order.items?.[0]?.vendor_name || "Seller"}</span>
+                            </div>
+                            <strong>{formatCurrency(order.total_amount)}</strong>
+                          </div>
+                          <div className={styles.mobileCardActions}>
+                            <button
+                              type="button"
+                              className={styles.tableAction}
+                              onClick={() => setSelectedOrder(order)}
+                            >
+                              View
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.tableAction}
+                              onClick={() => handleDownloadInvoice(order.id)}
+                              disabled={downloading[order.id]}
+                            >
+                              Invoice
+                            </button>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            )}
+          </main>
+        </div>
+
+        {selectedOrder && (
+          <OrderDetailModal
+            order={selectedOrder}
+            downloading={downloading[selectedOrder.id]}
+            onClose={() => setSelectedOrder(null)}
+            onDownloadInvoice={handleDownloadInvoice}
+            onBuyAgain={handleBuyAgain}
+            onNeedHelp={handleNeedHelp}
+          />
+        )}
+        <NeedHelpModal
+          open={Boolean(helpOrder)}
+          onClose={() => setHelpOrder(null)}
+          title="What help do you need?"
+          description={
+            helpOrder
+              ? `Our support team is here to help you with order #${formatOrderNumber(
+                  helpOrder.po_number,
+                  helpOrder.id
+                )}.`
+              : "Contact our support team for assistance."
+          }
+          email={supportEmail}
+          phone={supportPhone}
+          orderNumber={
+            helpOrder ? formatOrderNumber(helpOrder.po_number, helpOrder.id) : null
+          }
+        />
+        <ToastContainer position="bottom-right" autoClose={3000} />
+      </>
     );
   }
 
@@ -474,7 +891,14 @@ export default function OrdersPage() {
                   const firstItem = order.items?.[0];
 
                   return (
-                    <article key={order.id} className={styles.orderCard}>
+                    <article
+                      key={order.id}
+                      className={`${styles.orderCard} ${
+                        normalizeStatus(order.status) === "cancelled"
+                          ? styles.orderCardCancelled
+                          : ""
+                      }`}
+                    >
                       <div className={styles.orderTop}>
                         <div>
                           <div className={styles.orderMetaRow}>
@@ -510,10 +934,10 @@ export default function OrdersPage() {
                           </span>
                         </div>
 
-                        <div className={styles.orderActions}>
-                          <button type="button" className={styles.softButton} onClick={() => setSelectedOrder(order)}>
-                            View Details
-                          </button>
+                      <div className={styles.orderActions}>
+                        <button type="button" className={styles.softButton} onClick={() => setSelectedOrder(order)}>
+                          View Details
+                        </button>
                           <button
                             type="button"
                             className={styles.softButton}
@@ -527,21 +951,37 @@ export default function OrdersPage() {
                             )}
                             Invoice
                           </button>
-                          <button type="button" className={styles.softButton} onClick={() => handleBuyAgain(order)}>
-                            <RefreshCw size={15} />
-                            Buy Again
+                        <button type="button" className={styles.softButton} onClick={() => handleBuyAgain(order)}>
+                          <RefreshCw size={15} />
+                          Buy Again
+                        </button>
+                        <button type="button" className={styles.softButton} onClick={() => handleNeedHelp(order)}>
+                          Need Help
+                        </button>
+                        {!isHistory &&
+                          !["cancelled", "delivered", "completed"].includes(
+                            normalizeStatus(order.status)
+                          ) && (
+                          <button
+                            type="button"
+                            className={styles.softButton}
+                            onClick={() => handleCancelOrder(order)}
+                            disabled={cancelling[order.id]}
+                          >
+                            {cancelling[order.id] ? (
+                              <Loader2 className={styles.inlineSpinner} size={15} />
+                            ) : null}
+                            Cancel Order
                           </button>
-                          <button type="button" className={styles.softButton} onClick={() => handleNeedHelp(order)}>
-                            Need Help
-                          </button>
-                        </div>
+                        )}
                       </div>
-                    </article>
-                  );
-                })
+                    </div>
+                  </article>
+                );
+              })
               ) : (
                 <div className={styles.messageCard}>
-                  {orders.length === 0
+                  {scopedOrders.length === 0
                     ? "No orders yet. Complete a purchase to see it here."
                     : "No orders matched your current search or filter."}
                 </div>
@@ -550,7 +990,6 @@ export default function OrdersPage() {
           )}
         </main>
 
-        <Footer />
       </div>
 
       {selectedOrder && (
@@ -563,6 +1002,26 @@ export default function OrdersPage() {
           onNeedHelp={handleNeedHelp}
         />
       )}
+      <NeedHelpModal
+        open={Boolean(helpOrder)}
+        onClose={() => setHelpOrder(null)}
+        title="What help do you need?"
+        description={
+          helpOrder
+            ? `Our support team is here to help you with order #${formatOrderNumber(
+                helpOrder.po_number,
+                helpOrder.id
+              )}.`
+            : "Contact our support team for assistance."
+        }
+        email={supportEmail}
+        phone={supportPhone}
+        orderNumber={
+          helpOrder ? formatOrderNumber(helpOrder.po_number, helpOrder.id) : null
+        }
+      />
+      <ToastContainer position="bottom-right" autoClose={3000} />
     </>
   );
 }
+

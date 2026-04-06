@@ -3,6 +3,7 @@ import "./globals.css";
 import "./landing.css";
 import "./cart.css";
 import "./profile.css";
+import "./SettingsPage.css";
 import "./favourite.css";
 import "./navbar.css";
 import "./signin.css";
@@ -39,7 +40,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className={`${manrope.variable} ${poppins.variable} ${playfair.variable} ${geistMono.variable}`}>
-        <ClientWrapper>{children}</ClientWrapper>
+        <ClientWrapper>
+          {children}
+        </ClientWrapper>
       </body>
     </html>
   );

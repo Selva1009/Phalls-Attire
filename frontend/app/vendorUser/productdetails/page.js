@@ -20,6 +20,7 @@ export default function ProductDetails() {
   const [error, setError] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const itemsPerPage = 5;
+  const imageCacheBuster = useMemo(() => Date.now(), []);
 
   const vendorUserId = typeof window !== "undefined" ? localStorage.getItem("vendorUserId") : null;
 
@@ -204,7 +205,7 @@ export default function ProductDetails() {
                   <tr key={ product.id } className="hover:bg-gray-50">
                     <td className="px-4 py-4">
                       <img
-                        src={ `${API_BASE_URL}/uploads/${product.productImage}` }
+                        src={ `${API_BASE_URL}/uploads/${product.productImage}?v=${imageCacheBuster}` }
                         alt={ product.productName }
                         className="h-10 w-10 rounded object-cover"
                         onError={ (e) => {

@@ -1,6 +1,5 @@
 import React from "react";
 import Navbar from "./Navbar";
-import Footer from "./Footer";
 
 const LegalDisclaimer = () => {
   return (
@@ -67,9 +66,9 @@ const LegalDisclaimer = () => {
           </div>
         </section>
       </main>
-      <Footer />
     </div>
   );
 };
 
 export default LegalDisclaimer;
+import Footer from "./Footer";

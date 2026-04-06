@@ -344,8 +344,8 @@
 
 .nb-price {
   font-size: 13px;
-  font-weight: 500;
-  color: var(--nb-pink-light);
+  font-weight: 700;
+  color: var(--nb-pink);
   letter-spacing: 0.03em;
 }
 
@@ -354,7 +354,7 @@
   align-items: center;
   gap: 6px;
   padding: 8px 14px;
-  border: 1px solid rgba(233,30,99,0.35);
+  border: 1px solid var(--nb-cream);
   border-radius: 8px;
   background: rgba(255,255,255,0.7);
   font-family: var(--nb-font-body);
@@ -362,7 +362,7 @@
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--nb-pink-light);
+  color: var(--nb-cream);
   cursor: pointer;
   transition: background 0.2s ease, border-color 0.2s ease,
               color 0.2s ease, transform 0.15s ease;

@@ -159,7 +159,7 @@ router.get("/details/:vendorId", async (req, res) => {
         vu.personName,
         vu.Email,
         p.productName,
-        cu.companyName,
+        cu.personName AS customerName,
         REPLACE(REPLACE(REGEXP_SUBSTR(n.message, '\\(Qty: [0-9]+\\)'), '(Qty: ', ''), ')', '') AS quantity,
         p.price,
         n.created_at,

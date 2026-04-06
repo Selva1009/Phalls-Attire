@@ -1,7 +1,7 @@
 "use client";
 
 import { API_BASE_URL } from "@/lib/api";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Swal from "sweetalert2";
 import { IoCreateOutline } from "react-icons/io5";
@@ -27,6 +27,7 @@ export default function UpdateProduct() {
   const [previewImage, setPreviewImage] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [updating, setUpdating] = useState(false);
+  const imageCacheBuster = useMemo(() => Date.now(), []);
 
   // ✅ Load vendorId from localStorage
   useEffect(() => {
@@ -60,7 +61,9 @@ export default function UpdateProduct() {
           stock_status: product.stock_status || "",
         });
         if (data.product.productImage) {
-          setPreviewImage(`${API_BASE_URL}/uploads/${data.product.productImage}`);
+          setPreviewImage(
+            `${API_BASE_URL}/uploads/${data.product.productImage}?v=${imageCacheBuster}`
+          );
         }
       } catch (error) {
         console.error("Error fetching:", error.message);

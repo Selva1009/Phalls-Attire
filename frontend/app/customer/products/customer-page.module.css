@@ -599,9 +599,7 @@
 }
 
 .productOverlay {
-  inset: 0;
-  border-radius: 0;
-  background: linear-gradient(180deg, rgba(45, 27, 36, 0), rgba(45, 27, 36, 0.58));
+  display: none;
 }
 
 .wishlistButton {
@@ -619,11 +617,13 @@
   color: #8d6277;
   cursor: pointer;
   transition: transform 0.25s ease, background 0.25s ease, color 0.25s ease;
+  z-index: 2;
 }
 
 .wishlistButton:hover {
   transform: scale(1.08);
   color: #e91e63;
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .wishlisted {
@@ -694,10 +694,11 @@
 
 .productTitle {
   margin: 0;
-  font-size: 30px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 18px;
+  line-height: 1.25;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: initial;
 }
 
 .productBrand {

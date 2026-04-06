@@ -1,7 +1,7 @@
 "use client";
 
-import CustomerProfile from "../CustomerProfile/page";
+import OrdersPage from "../PoAutomation/page";
 
-export default function CustomerProfileOrdersPage() {
-  return <CustomerProfile initialSection="order-history" />;
+export default function CustomerOrderHistoryPage() {
+  return <OrdersPage variant="history" />;
 }

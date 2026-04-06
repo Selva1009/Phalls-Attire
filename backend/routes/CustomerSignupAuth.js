@@ -28,9 +28,9 @@ router.post("/customer-sendotp", async (req, res) => {
 // Customer Signup — directly into customerusersignup
 router.post("/customer-signup", async (req, res) => {
   try {
-    const { companyName, personName, contactNumber, Email, otp, password } = req.body;
+    const { personName, contactNumber, Email, otp, password } = req.body;
 
-    if (!companyName || !personName || !contactNumber || !Email || !password) {
+    if (!personName || !contactNumber || !Email || !password) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
@@ -61,9 +61,9 @@ router.post("/customer-signup", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const [insertResult] = await db.query(
-      `INSERT INTO customerusersignup (companyName, personName, contactNumber, Email, password)
-       VALUES (?, ?, ?, ?, ?)`,
-      [companyName, personName, contactNumber, Email, hashedPassword]
+      `INSERT INTO customerusersignup (personName, contactNumber, Email, password)
+       VALUES (?, ?, ?, ?)`,
+      [personName, contactNumber, Email, hashedPassword]
     );
     if (!insertResult.affectedRows) {
       return res.status(500).json({ message: "Failed to register customer" });

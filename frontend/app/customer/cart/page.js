@@ -1,7 +1,7 @@
 "use client";
 
 import { API_BASE_URL } from "@/lib/api";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   ShoppingCart,
@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import Navbar from "../components/Navbar";
-import Footer from "@/app/LandingPage/Footer";
 
 const formatPrice = (value) =>
   `Rs. ${Number(value || 0).toLocaleString("en-IN")}`;
@@ -25,12 +24,41 @@ const getAuthHeader = () => ({
   Authorization: `Bearer ${localStorage.getItem("token")}`,
 });
 
+const normalizeAddressForPayload = (address) => {
+  if (!address) return null;
+  if (typeof address === "string") {
+    const trimmed = address.trim();
+    return trimmed ? { address: trimmed } : null;
+  }
+  const resolvedAddress =
+    address.address || address.address_line || address.addressLine || "";
+  const resolvedPostal =
+    address.postalCode ||
+    address.postal_code ||
+    address.pincode ||
+    address.zip ||
+    address.zipCode ||
+    "";
+
+  return {
+    address: resolvedAddress,
+    city: address.city || "",
+    state: address.state || "",
+    country: address.country || "India",
+    postalCode: resolvedPostal,
+  };
+};
+
 const CartPage = () => {
   const [cart, setCart] = useState([]);
   const [customerId, setCustomerId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notifying, setNotifying] = useState({});
   const [checkingOut, setCheckingOut] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [checkoutItems, setCheckoutItems] = useState([]);
+  const [checkoutSizes, setCheckoutSizes] = useState({});
+  const [checkoutQuantities, setCheckoutQuantities] = useState({});
   const [addressOpen, setAddressOpen] = useState(false);
   const [addresses, setAddresses] = useState([]);
   const [addressLoading, setAddressLoading] = useState(false);
@@ -45,6 +73,8 @@ const CartPage = () => {
     pincode: "",
   });
   const router = useRouter();
+  const imageCacheBuster = useMemo(() => Date.now(), []);
+  const sizeOptions = ["XS", "S", "M", "L", "XL", "XXL"];
 
   const fetchCartItems = useCallback(async (currentCustomerId) => {
     try {
@@ -267,39 +297,8 @@ const CartPage = () => {
     }
   };
 
-  const initiateOrder = async (item) => {
-    const storedCustomer = localStorage.getItem("customerUser");
-    if (!storedCustomer) return toast.error("Please log in");
-
-    const { id } = JSON.parse(storedCustomer);
-    setNotifying((prev) => ({ ...prev, [item.id]: true }));
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/po/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customerId: id,
-          productId: item.product_id,
-          quantity: item.quantity,
-        }),
-      });
-
-      if (res.ok) {
-        toast.success(`Order placed for ${item.productName}`);
-        setCart((prev) => prev.filter((cartItem) => cartItem.id !== item.id));
-      } else {
-        toast.error("Failed to place order");
-      }
-    } catch (error) {
-      toast.error("Server error while placing order");
-    } finally {
-      setNotifying((prev) => ({ ...prev, [item.id]: false }));
-    }
-  };
-
-  const handleCheckout = async () => {
-    if (!cart.length) {
+  const openCheckout = (items) => {
+    if (!items.length) {
       toast.info("Your cart is empty");
       return;
     }
@@ -310,62 +309,79 @@ const CartPage = () => {
       return;
     }
 
-    const { id } = JSON.parse(storedCustomer);
-    setCheckingOut(true);
+    const qtyMap = {};
+    const sizeMap = {};
+    items.forEach((item) => {
+      qtyMap[item.id] = Number(item.quantity || 1);
+      sizeMap[item.id] = sizeOptions.includes(item.size) ? item.size : "M";
+    });
+    setCheckoutItems(items);
+    setCheckoutQuantities(qtyMap);
+    setCheckoutSizes(sizeMap);
+    setCheckoutOpen(true);
+  };
 
-    try {
-      const results = await Promise.all(
-        cart.map(async (item) => {
-          const response = await fetch(`${API_BASE_URL}/api/po/generate`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              customerId: id,
-              productId: item.product_id,
-              quantity: item.quantity,
-            }),
-          });
+  const updateCheckoutQty = (itemId, value) => {
+    const safeValue = Math.max(1, Number(value || 1));
+    setCheckoutQuantities((prev) => ({ ...prev, [itemId]: safeValue }));
+  };
 
-          return {
-            item,
-            ok: response.ok,
-          };
-        })
-      );
+  const updateCheckoutSize = (itemId, value) => {
+    setCheckoutSizes((prev) => ({ ...prev, [itemId]: value }));
+  };
 
-      const failedItems = results.filter((result) => !result.ok);
-
-      if (failedItems.length === results.length) {
-        toast.error("Checkout failed");
-        return;
-      }
-
-      const successfulItemIds = results
-        .filter((result) => result.ok)
-        .map((result) => result.item.id);
-
-      if (successfulItemIds.length > 0) {
-        setCart((currentCart) =>
-          currentCart.filter((item) => !successfulItemIds.includes(item.id))
-        );
-      }
-
-      if (failedItems.length > 0) {
-        toast.warning("Some items could not be checked out");
-        return;
-      }
-
-      toast.success("Checkout completed successfully");
-      window.location.href = "/customer/PoAutomation";
-    } catch (error) {
-      toast.error("Server error during checkout");
-    } finally {
-      setCheckingOut(false);
+  const proceedToPayment = () => {
+    const storedCustomer = localStorage.getItem("customerUser");
+    if (!storedCustomer) {
+      toast.error("Please log in");
+      return;
     }
+
+    const customer = JSON.parse(storedCustomer);
+    const shipToAddress = normalizeAddressForPayload(
+      JSON.parse(localStorage.getItem("activeAddress") || "null")
+    );
+
+    const items = checkoutItems.map((item) => ({
+      cartId: item.id,
+      productId: item.product_id,
+      productName: item.productName,
+      price: Number(item.price || 0),
+      quantity: checkoutQuantities[item.id] || 1,
+      size: checkoutSizes[item.id] || "M",
+      image: item.productImage,
+    }));
+
+    const totalAmount = items.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+
+    if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
+      toast.error("Please select a valid quantity.");
+      return;
+    }
+
+    const payload = {
+      customerId: customer.id,
+      items,
+      totalAmount,
+      shipToAddress,
+      createdAt: Date.now(),
+    };
+
+    localStorage.setItem("pendingPayment", JSON.stringify(payload));
+    setCheckoutOpen(false);
+    router.push("/customer/payment");
   };
 
   const totalPrice = cart.reduce(
     (sum, item) => sum + Number(item.price) * Number(item.quantity),
+    0
+  );
+  const checkoutTotal = checkoutItems.reduce(
+    (sum, item) =>
+      sum + Number(item.price || 0) * Number(checkoutQuantities[item.id] || 1),
     0
   );
 
@@ -387,7 +403,7 @@ const CartPage = () => {
             type="button"
             className="cart-primary-button"
             onClick={() => {
-              window.location.href = "/login";
+              router.push("/login");
             }}
           >
             Login to Continue
@@ -438,7 +454,7 @@ const CartPage = () => {
                 <article key={item.id} className="cart-item-card">
                   <div className="cart-item-media">
                     <img
-                      src={`${API_BASE_URL}/uploads/${item.productImage}`}
+                      src={`${API_BASE_URL}/uploads/${item.productImage}?v=${imageCacheBuster}`}
                       alt={item.productName}
                       className="cart-item-image"
                     />
@@ -479,41 +495,7 @@ const CartPage = () => {
                       </div>
 
                       <div className="cart-item-actions">
-                        <button
-                          type="button"
-                          onClick={() => removeFromCart(item.id)}
-                          className="cart-remove-button"
-                        >
-                          <Trash2 size={16} />
-                          <span>Remove</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => notifyVendor(item)}
-                          disabled={notifying[item.id]}
-                          className="cart-soft-button"
-                        >
-                          {notifying[item.id] ? (
-                            <Loader2 className="cart-inline-spinner" />
-                          ) : (
-                            <Bell size={16} />
-                          )}
-                          <span>Notify</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => initiateOrder(item)}
-                          disabled={notifying[item.id]}
-                          className="cart-soft-button"
-                        >
-                          {notifying[item.id] ? (
-                            <Loader2 className="cart-inline-spinner" />
-                          ) : (
-                            <FileCog size={16} />
-                          )}
-                          <span>Place order</span>
-                        </button>
+                        {/* actions trimmed */}
                       </div>
                     </div>
 
@@ -526,8 +508,13 @@ const CartPage = () => {
                     </div>
 
                     <div className="cart-item-footer-actions">
-                      <button type="button" className="cart-footer-button">
-                        Save for later
+                      <button
+                        type="button"
+                        className="cart-footer-button"
+                        onClick={() => notifyVendor(item)}
+                        disabled={notifying[item.id]}
+                      >
+                        {notifying[item.id] ? "Notifying..." : "Notify"}
                       </button>
                       <button
                         type="button"
@@ -539,10 +526,10 @@ const CartPage = () => {
                       <button
                         type="button"
                         className="cart-footer-button cart-footer-primary"
-                        onClick={() => initiateOrder(item)}
+                        onClick={() => openCheckout([item])}
                         disabled={notifying[item.id]}
                       >
-                        Buy this now
+                        Place order
                       </button>
                     </div>
                   </div>
@@ -551,45 +538,117 @@ const CartPage = () => {
             )}
           </section>
 
-          <aside className="cart-summary-panel">
-            <p className="cart-section-label">Price Details</p>
-            <h2>Price Details</h2>
-
-            <div className="cart-summary-row">
-              <span>Price ({cart.length} item)</span>
-              <span>{formatPrice(totalPrice)}</span>
-            </div>
-            <div className="cart-summary-row">
-              <span>Discount</span>
-              <span className="cart-discount">- Rs. 0</span>
-            </div>
-            <div className="cart-summary-row">
-              <span>Platform Fee</span>
-              <span>Rs. 0</span>
-            </div>
-            <div className="cart-summary-row">
-              <span>Handling Fee</span>
-              <span>Rs. 25</span>
-            </div>
-            <div className="cart-summary-total">
-              <span>Total Amount</span>
-              <strong>{formatPrice(totalPrice)}</strong>
-            </div>
-
-            <button
-              type="button"
-              className="cart-primary-button cart-checkout-button"
-              onClick={handleCheckout}
-              disabled={checkingOut || cart.length === 0}
-            >
-              {checkingOut ? <Loader2 className="cart-inline-spinner" /> : null}
-              {checkingOut ? "Processing..." : "Place Order"}
-            </button>
-
-            <p className="cart-summary-note">Safe and secure payments. Easy returns.</p>
-          </aside>
+          {/* Summary panel removed as requested */}
         </div>
       </div>
+
+      {checkoutOpen && (
+        <div className="cart-checkout-overlay" onClick={() => setCheckoutOpen(false)}>
+          <div
+            className="cart-checkout-modal cart-checkout-drawer"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="cart-checkout-header">
+              <div>
+                <p className="cart-checkout-eyebrow">Checkout</p>
+                <h3>Select size and quantity</h3>
+              </div>
+              <button
+                type="button"
+                className="cart-checkout-close"
+                onClick={() => setCheckoutOpen(false)}
+              >
+                X
+              </button>
+            </div>
+
+            <div className="cart-checkout-items">
+              {checkoutItems.map((item) => (
+                <div key={item.id} className="cart-checkout-item">
+                  <img
+                    src={`${API_BASE_URL}/uploads/${item.productImage}?v=${imageCacheBuster}`}
+                    alt={item.productName}
+                    className="cart-checkout-image"
+                  />
+                  <div className="cart-checkout-info">
+                    <p className="cart-checkout-name">{item.productName}</p>
+                    <p className="cart-checkout-price">{formatPrice(item.price)}</p>
+
+                    <div className="cart-checkout-row">
+                      <span>Size</span>
+                      <div className="cart-size-options">
+                        {sizeOptions.map((size) => (
+                          <button
+                            key={size}
+                            type="button"
+                            className={`cart-size-chip ${
+                              checkoutSizes[item.id] === size ? "active" : ""
+                            }`}
+                            onClick={() => updateCheckoutSize(item.id, size)}
+                          >
+                            {size}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="cart-checkout-row">
+                      <span>Quantity</span>
+                      <div className="cart-qty-control">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateCheckoutQty(
+                              item.id,
+                              (checkoutQuantities[item.id] || 1) - 1
+                            )
+                          }
+                        >
+                          -
+                        </button>
+                        <input
+                          type="number"
+                          min="1"
+                          value={checkoutQuantities[item.id] || 1}
+                          onChange={(event) =>
+                            updateCheckoutQty(item.id, event.target.value)
+                          }
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateCheckoutQty(
+                              item.id,
+                              (checkoutQuantities[item.id] || 1) + 1
+                            )
+                          }
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="cart-checkout-footer">
+              <div className="cart-checkout-total">
+                <span>Total</span>
+                <strong>{formatPrice(checkoutTotal)}</strong>
+              </div>
+              <button
+                type="button"
+                className="cart-primary-button cart-checkout-cta"
+                onClick={proceedToPayment}
+              >
+                Continue to Payment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {addressOpen && (
         <div className="cart-address-overlay" onClick={() => setAddressOpen(false)}>
           <div className="cart-address-drawer" onClick={(event) => event.stopPropagation()}>
@@ -723,7 +782,6 @@ const CartPage = () => {
           </div>
         </div>
       )}
-      <Footer />
     </>
   );
 };

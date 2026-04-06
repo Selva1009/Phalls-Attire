@@ -2,11 +2,14 @@
 
 import { API_BASE_URL } from "@/lib/api";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import * as XLSX from "xlsx";
 import { ToastContainer } from "react-toastify";
 import Swal from "sweetalert2";
 import { IoBagAdd } from "react-icons/io5";
 
 export default function AddProduct() {
+  const router = useRouter();
   const [vendorUserId, setVendorUserId] = useState(null);
   const [vendorUser, setVendorUser] = useState(null);
 
@@ -23,6 +26,8 @@ export default function AddProduct() {
 
   const [productImage, setProductImage] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
+  const [bulkFile, setBulkFile] = useState(null);
+  const [bulkImages, setBulkImages] = useState([]);
 
   useEffect(() => {
     const storedVendor = localStorage.getItem("vendorUser");
@@ -42,7 +47,7 @@ export default function AddProduct() {
         confirmButtonColor: "#d33",
         confirmButtonText: "OK",
       }).then(() => {
-        window.location.href = "/vendor/login";
+        router.push("/vendor/login");
       });
     }
   }, []);
@@ -156,6 +161,110 @@ export default function AddProduct() {
     }
   };
 
+  const bulkHeaders = [
+    "productName",
+    "brand",
+    "category",
+    "price",
+    "hsn_code",
+    "stock_status",
+    "description",
+    "productImage",
+  ];
+
+  const downloadTemplate = (type) => {
+    if (type === "csv") {
+      const csvContent = `${bulkHeaders.join(",")}\n`;
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "products-template.csv";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    const worksheet = XLSX.utils.aoa_to_sheet([bulkHeaders]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Products");
+    XLSX.writeFile(workbook, "products-template.xlsx");
+  };
+
+  const handleBulkUpload = async (e) => {
+    e.preventDefault();
+
+    if (!vendorUserId) {
+      Swal.fire({
+        title: "Error!",
+        text: "Vendor user ID not available.",
+        icon: "error",
+      });
+      return;
+    }
+
+    if (!bulkFile) {
+      Swal.fire({
+        title: "Missing File",
+        text: "Please upload a CSV or XLSX file.",
+        icon: "warning",
+      });
+      return;
+    }
+
+    const formDataToSend = new FormData();
+    formDataToSend.append("vendor_user_id", vendorUserId);
+    formDataToSend.append("file", bulkFile);
+    bulkImages.forEach((image) => {
+      formDataToSend.append("images", image);
+    });
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/auth/products/bulk-upload`,
+        {
+          method: "POST",
+          body: formDataToSend,
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Bulk upload failed.");
+      }
+
+      const errorPreview = (data.errors || [])
+        .slice(0, 5)
+        .map((err) => `Row ${err.row}: ${err.reason}`)
+        .join("\n");
+
+      Swal.fire({
+        title: "Bulk Upload Complete",
+        text:
+          `Inserted: ${data.insertedCount || 0}\n` +
+          `Failed: ${data.failedCount || 0}` +
+          (errorPreview ? `\n\n${errorPreview}` : ""),
+        icon: data.failedCount ? "warning" : "success",
+        confirmButtonColor: "#3085d6",
+        confirmButtonText: "OK",
+      });
+
+      setBulkFile(null);
+      setBulkImages([]);
+    } catch (error) {
+      Swal.fire({
+        title: "Error!",
+        text: error.message,
+        icon: "error",
+        confirmButtonColor: "#d33",
+        confirmButtonText: "OK",
+      });
+    }
+  };
+
   return (
     <>
       <div className="max-w-3xl mx-auto bg-white p-6 rounded-xl shadow-lg mt-8 font-sans w-full md:w-4/5 lg:w-3/5">
@@ -163,6 +272,68 @@ export default function AddProduct() {
           <IoBagAdd size={25} />
           Add New Product
         </h2>
+
+        <form
+          className="mb-8 rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-700"
+          onSubmit={handleBulkUpload}
+        >
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2">
+              <p className="font-semibold text-black">Bulk Upload (CSV/XLSX)</p>
+              <p className="text-xs text-gray-600">
+                Upload a CSV/XLSX file and images together. The <code>productImage</code> column
+                must match the uploaded image filenames.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => downloadTemplate("csv")}
+                  className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-gray-100"
+                >
+                  Download CSV Template
+                </button>
+                <button
+                  type="button"
+                  onClick={() => downloadTemplate("xlsx")}
+                  className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-gray-100"
+                >
+                  Download Excel Template
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className="block font-medium mb-2">CSV/XLSX File</label>
+                <input
+                  type="file"
+                  accept=".csv,.xlsx"
+                  onChange={(e) => setBulkFile(e.target.files?.[0] || null)}
+                  className="w-full p-2 border rounded-md font-sans"
+                />
+              </div>
+              <div>
+                <label className="block font-medium mb-2">Product Images</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => setBulkImages(Array.from(e.target.files || []))}
+                  className="w-full p-2 border rounded-md font-sans"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-start">
+              <button
+                type="submit"
+                className="bg-gray-900 text-white px-6 py-2 rounded-md hover:bg-black transition font-sans w-full sm:w-auto"
+              >
+                Upload Bulk Products
+              </button>
+            </div>
+          </div>
+        </form>
 
         <form
           className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-black"

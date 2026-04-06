@@ -1,12 +1,11 @@
 "use client";
 
 import { API_BASE_URL } from "@/lib/api";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Navbar from "../../components/Navbar";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import Footer from "@/app/LandingPage/Footer";
 import styles from "./product-detail.module.css";
 
 const ProductDetail = () => {
@@ -18,27 +17,21 @@ const ProductDetail = () => {
   const [error, setError] = useState("");
   const [customerId, setCustomerId] = useState(null);
   const [cart, setCart] = useState([]);
+  const imageCacheBuster = useMemo(() => Date.now(), []);
 
-  // Fetch customer data and cart details from localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
       const storedCustomer = localStorage.getItem("customerUser");
       const customerData = storedCustomer ? JSON.parse(storedCustomer) : null;
-      if (customerData) {
-        setCustomerId(customerData.id);
-      }
-
-      // Load cart from localStorage
+      if (customerData) setCustomerId(customerData.id);
       const storedCart =
         JSON.parse(localStorage.getItem(`cart_${customerData?.id}`)) || [];
       setCart(storedCart);
     }
   }, []);
 
-  // Fetch product details from API
   useEffect(() => {
     if (!id) return;
-
     const fetchProduct = async () => {
       try {
         const res = await fetch(
@@ -53,13 +46,11 @@ const ProductDetail = () => {
         setLoading(false);
       }
     };
-
     fetchProduct();
   }, [id]);
 
   useEffect(() => {
     if (!product?.id) return;
-
     const fetchSuggestions = async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/api/auth/products/get-products/all`);
@@ -78,11 +69,9 @@ const ProductDetail = () => {
         setSuggestions([]);
       }
     };
-
     fetchSuggestions();
   }, [product]);
 
-  // Handle add to cart
   const handleAddToCart = async () => {
     if (!customerId) {
       toast.error("Please log in to add products to your cart.", {
@@ -91,14 +80,8 @@ const ProductDetail = () => {
       });
       return;
     }
-
     try {
-      const cartItem = {
-        customerId: customerId,
-        productId: product.id,
-        quantity: 1,
-      };
-
+      const cartItem = { customerId, productId: product.id, quantity: 1 };
       const response = await fetch(`${API_BASE_URL}/api/cart/add`, {
         method: "POST",
         headers: {
@@ -108,153 +91,177 @@ const ProductDetail = () => {
         body: JSON.stringify(cartItem),
       });
       if (response.status === 401) {
-        window.location.href = "/SignIn";
+        router.push("/SignIn");
         return;
       }
-
       const data = await response.json();
-      console.log("Add to Cart Response:", data);
-
       if (data.success) {
         const newCart = [...cart, { ...product, quantity: 1 }];
         setCart(newCart);
         localStorage.setItem(`cart_${customerId}`, JSON.stringify(newCart));
-
         window.dispatchEvent(new Event("storage"));
-
-        toast.success("Product added to cart!", {
+        toast.success("Added to your Cart.", {
           position: "bottom-right",
-          autoClose: 1000,
+          autoClose: 1500,
         });
       } else {
-        toast.error(`Failed to add product: ${data.message}`, {
-          position: "top-right",
-          autoClose: 1000,
-        });
+        toast.error(`${data.message}`, { position: "top-right", autoClose: 1000 });
       }
     } catch (err) {
-      console.error("Error adding product to cart:", err);
-      toast.error("Error adding product to cart.", {
-        position: "top-right",
-        autoClose: 2000,
-      });
+      toast.error("Something went wrong.", { position: "top-right", autoClose: 2000 });
     }
   };
 
-
-  if (loading) return <p className={styles.stateMessage}>Loading...</p>;
-  if (error) return <p className={`${styles.stateMessage} ${styles.stateError}`}>{error}</p>;
+  if (loading)
+    return (
+      <div className={styles.loadingScreen}>
+        <span className={styles.loadingDot} />
+        <span className={styles.loadingDot} />
+        <span className={styles.loadingDot} />
+      </div>
+    );
+  if (error)
+    return <p className={styles.errorScreen}>{error}</p>;
   if (!product) return null;
 
   return (
     <>
       <Navbar disableFilters={true} disableSearch={true} />
       <ToastContainer />
-      <main className={styles.pageShell}>
-        <section className={styles.detailSection}>
-          <div className={styles.mediaPanel}>
-            <div className={styles.mediaFrame}>
+
+      <main className={styles.shell}>
+
+        {/* ── HERO SPLIT ── */}
+        <section className={styles.hero}>
+
+          {/* Left: image */}
+          <div className={styles.imageSide}>
+            <div className={styles.imageWrap}>
               <img
                 src={
                   product.productImage
-                    ? `${API_BASE_URL}/uploads/${product.productImage}`
+                    ? `${API_BASE_URL}/uploads/${product.productImage}?v=${imageCacheBuster}`
                     : "/CordSet1 (21).jpeg"
                 }
                 alt={product.productName}
-                className={styles.productImage}
+                className={styles.heroImage}
               />
+              <div className={styles.imageFade} />
             </div>
 
-            <div className={styles.actionStack}>
-              <button onClick={handleAddToCart} className={styles.cartButton}>
-                Add to Cart
+            {/* floating tag */}
+            {/* <div className={styles.floatingTag}> */}
+              {/* <span>Signature Edit</span> */}
+            {/* </div> */}
+          </div>
+
+          {/* Right: info */}
+          <div className={styles.infoSide}>
+            <div className={styles.infoInner}>
+
+              <p className={styles.overline}>
+                {product.brand || "Phalls"} &nbsp;/&nbsp; {product.seller || "Premium Partner"}
+              </p>
+
+              <h1 className={styles.title}>{product.productName}</h1>
+
+              <div className={styles.dividerLine} />
+
+              <p className={styles.price}>
+                ₹{Number(product.price || 0).toLocaleString("en-IN")}
+              </p>
+
+              <p className={styles.description}>
+                {product.description || "A premium dress edit crafted for the modern woman."}
+              </p>
+
+              <div className={styles.metaList}>
+                <div className={styles.metaItem}>
+                  <span className={styles.metaKey}>Category</span>
+                  <span className={styles.metaVal}>{product.category || "Curated"}</span>
+                </div>
+                <div className={styles.metaItem}>
+                  <span className={styles.metaKey}>Brand</span>
+                  <span className={styles.metaVal}>{product.brand || "Phalls"}</span>
+                </div>
+                <div className={styles.metaItem}>
+                  <span className={styles.metaKey}>Seller</span>
+                  <span className={styles.metaVal}>{product.seller || "Premium Partner"}</span>
+                </div>
+              </div>
+
+              <button onClick={handleAddToCart} className={styles.cartBtn}>
+                <span>Add to Cart</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <path d="M16 10a4 4 0 01-8 0" />
+                </svg>
+              </button>
+
+            </div>
+          </div>
+        </section>
+
+        {/* ── YOU MAY ALSO LIKE ── */}
+        {suggestions.length > 0 && (
+          <section className={styles.suggest}>
+            <div className={styles.suggestHead}>
+              <div className={styles.suggestHeadLeft}>
+                <p className={styles.suggestOverline}>Styled for you</p>
+                <h2 className={styles.suggestTitle}>You may also love</h2>
+              </div>
+              <button
+                className={styles.viewAllBtn}
+                onClick={() => router.push("/customer/products#explore")}
+              >
+                View all
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
               </button>
             </div>
-          </div>
 
-          <div className={styles.contentPanel}>
-            <div className={styles.contentHeader}>
-              <span className={styles.eyebrow}>Product</span>
-              <h1 className={styles.productTitle}>{product.productName}</h1>
-              <div className={styles.metaRow}>
-                <span className={styles.categoryChip}>{product.category || "Signature edit"}</span>
-                <span className={styles.brandChip}>{product.brand || "Phalls"}</span>
-              </div>
-              <p className={styles.priceValue}>
-                Rs. {Number(product.price || 0).toLocaleString("en-IN")}
-              </p>
+            <div className={styles.suggestTrack}>
+              {suggestions.map((item, i) => (
+                <article
+                  key={item.id}
+                  className={styles.suggestCard}
+                  style={{ "--i": i }}
+                  onClick={() => router.push(`/customer/product/${item.id}`)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") router.push(`/customer/product/${item.id}`);
+                  }}
+                >
+                  <div className={styles.suggestImgBox}>
+                    <img
+                      src={
+                        item.productImage
+                          ? `${API_BASE_URL}/uploads/${item.productImage}?v=${imageCacheBuster}`
+                          : item.localImage || "/CordSet1 (24).jpeg"
+                      }
+                      alt={item.productName}
+                      className={styles.suggestImg}
+                    />
+                    <div className={styles.suggestOverlay}>
+                      <span className={styles.suggestQuickLook}>Quick look</span>
+                    </div>
+                  </div>
+                  <div className={styles.suggestInfo}>
+                    <p className={styles.suggestName}>{item.productName || "Signature Dress"}</p>
+                    <p className={styles.suggestCat}>{item.category || "Curated"}</p>
+                    <p className={styles.suggestPrice}>
+                      ₹{Number(item.price || 0).toLocaleString("en-IN")}
+                    </p>
+                  </div>
+                </article>
+              ))}
             </div>
-
-            <div className={styles.infoGrid}>
-              <div className={styles.infoCard}>
-                <p className={styles.infoLabel}>Seller</p>
-                <p className={styles.infoValue}>{product.seller || "Premium Partner"}</p>
-              </div>
-              <div className={styles.infoCard}>
-                <p className={styles.infoLabel}>Category</p>
-                <p className={styles.infoValue}>{product.category || "Curated"}</p>
-              </div>
-              <div className={styles.infoCardFull}>
-                <p className={styles.infoLabel}>Description</p>
-                <p className={styles.infoValue}>{product.description || "Premium dress edit."}</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className={styles.suggestionSection}>
-          <div className={styles.suggestionHeader}>
-            <div>
-              <span className={styles.suggestionEyebrow}>Suggestions</span>
-              <h2>More dresses you may like</h2>
-              <p>Curated picks from the same category to keep your look cohesive.</p>
-            </div>
-            <button
-              type="button"
-              className={styles.suggestionButton}
-              onClick={() => router.push("/customer/products#explore")}
-            >
-              View all
-            </button>
-          </div>
-
-          <div className={styles.suggestionGrid}>
-            {suggestions.map((item) => (
-              <article
-                key={item.id}
-                className={styles.suggestionCard}
-                onClick={() => router.push(`/customer/product/${item.id}`)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    router.push(`/customer/product/${item.id}`);
-                  }
-                }}
-              >
-                <div className={styles.suggestionImageWrap}>
-                  <img
-                    src={
-                      item.productImage
-                        ? `${API_BASE_URL}/uploads/${item.productImage}`
-                        : item.localImage || "/CordSet1 (24).jpeg"
-                    }
-                    alt={item.productName}
-                  />
-                </div>
-                <div className={styles.suggestionBody}>
-                  <h3>{item.productName || "Signature dress"}</h3>
-                  <p>{item.category || "Curated edit"}</p>
-                  <span>
-                    Rs. {Number(item.price || 0).toLocaleString("en-IN")}
-                  </span>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
+          </section>
+        )}
       </main>
-      <Footer />
     </>
   );
 };

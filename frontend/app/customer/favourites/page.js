@@ -2,9 +2,9 @@
 
 import { API_BASE_URL } from "@/lib/api";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Heart, ShoppingBag, Trash2 } from "lucide-react";
 import Navbar from "@/app/customer/components/Navbar";
-import Footer from "@/app/LandingPage/Footer";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -12,11 +12,13 @@ const formatPrice = (value) =>
   `Rs. ${Number(value || 0).toLocaleString("en-IN")}`;
 
 export default function FavouritePage() {
+  const router = useRouter();
   const [products, setProducts] = useState([]);
   const [wishlist, setWishlist] = useState([]);
   const [loading, setLoading] = useState(true);
   const [customerId, setCustomerId] = useState(null);
   const [cartItems, setCartItems] = useState([]);
+  const imageCacheBuster = useMemo(() => Date.now(), []);
 
   /* ── Fetch wishlist ── */
   useEffect(() => {
@@ -31,7 +33,7 @@ export default function FavouritePage() {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (response.status === 401) {
-          window.location.href = "/SignIn";
+          router.push("/SignIn");
           return;
         }
         const data = await response.json();
@@ -101,7 +103,7 @@ export default function FavouritePage() {
     const remove = async () => {
       const token = localStorage.getItem("token");
       if (!token) {
-        window.location.href = "/SignIn";
+        router.push("/SignIn");
         return;
       }
       try {
@@ -113,7 +115,7 @@ export default function FavouritePage() {
           }
         );
         if (response.status === 401) {
-          window.location.href = "/SignIn";
+          router.push("/SignIn");
           return;
         }
         if (!response.ok) throw new Error("Failed to remove favourite");
@@ -145,7 +147,7 @@ export default function FavouritePage() {
         body: JSON.stringify({ customerId, productId: product.id, quantity: 1 }),
       });
       if (response.status === 401) {
-        window.location.href = "/SignIn";
+        router.push("/SignIn");
         return;
       }
       const data = await response.json();
@@ -225,7 +227,7 @@ export default function FavouritePage() {
                       <img
                         src={
                           product.productImage
-                            ? `${API_BASE_URL}/uploads/${product.productImage}`
+                            ? `${API_BASE_URL}/uploads/${product.productImage}?v=${imageCacheBuster}`
                             : "/CordSet1 (21).jpeg"
                         }
                         alt={product.productName}
@@ -290,7 +292,7 @@ export default function FavouritePage() {
                 <button
                   type="button"
                   className="nb-shop-btn"
-                  onClick={() => (window.location.href = "/customer/shop")}
+                  onClick={() => router.push("/customer/products#explore")}
                 >
                   Continue shopping
                 </button>
@@ -313,7 +315,6 @@ export default function FavouritePage() {
         </div>
       </div>
 
-      <Footer />
     </>
   );
 }

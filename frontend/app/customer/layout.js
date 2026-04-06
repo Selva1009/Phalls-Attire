@@ -2,16 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
-  PersonOutline,
-  LockReset,
-  LocationOn,
   FavoriteBorder,
   History,
   ReceiptLong,
   ShoppingCartCheckout,
   HomeOutlined,
+  SettingsOutlined,
   KeyboardDoubleArrowLeft,
   KeyboardDoubleArrowRight,
 } from "@mui/icons-material";
@@ -19,9 +17,12 @@ import {
 export default function CustomerLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [isVerified, setIsVerified] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const THEME_KEY = "customerTheme";
 
   useEffect(() => {
     const storedCustomer = localStorage.getItem("customerUser");
@@ -33,38 +34,93 @@ export default function CustomerLayout({ children }) {
     }
   }, []);
 
+  useEffect(() => {
+    const applyTheme = (mode) => {
+      if (typeof document === "undefined") return;
+      const root = document.documentElement;
+      root.classList.remove("theme-light", "theme-dark");
+      root.classList.add(mode === "dark" ? "theme-dark" : "theme-light");
+    };
+
+    const stored = localStorage.getItem(THEME_KEY) || "light";
+    applyTheme(stored);
+
+    const handleThemeEvent = () => {
+      const fresh = localStorage.getItem(THEME_KEY) || "light";
+      applyTheme(fresh);
+    };
+
+    window.addEventListener("storage", handleThemeEvent);
+    window.addEventListener("theme-change", handleThemeEvent);
+    return () => {
+      window.removeEventListener("storage", handleThemeEvent);
+      window.removeEventListener("theme-change", handleThemeEvent);
+    };
+  }, []);
+
   const activeTab = useMemo(() => {
     const tabMap = {
-      "/customer/profile": "personal",
-      "/customer/password": "password",
-      "/customer/addresses": "addresses",
+      "/customer/profile": "settings",
+      "/customer/password": "settings",
+      "/customer/addresses": "settings",
       "/customer/orders": "order-history",
       "/customer/transactions": "transactions",
-      "/customer/CustomerProfile": "order-history",
+      "/customer/CustomerProfile": "settings",
+      "/customer/settings": "settings",
     };
     return tabMap[pathname] || pathname;
   }, [pathname]);
 
-  if (!isVerified) return null;
-
   const allItems = [
     { id: "home",          label: "Home",             href: "/customer/products",                                           icon: <HomeOutlined sx={{ fontSize: 18 }} /> },
-    { id: "personal",      label: "Personal Info",    href: "/customer/profile",      icon: <PersonOutline sx={{ fontSize: 18 }} /> },
-    { id: "password",      label: "Change Password",  href: "/customer/password",      icon: <LockReset sx={{ fontSize: 18 }} /> },
-    { id: "addresses",     label: "Addresses",        href: "/customer/addresses",     icon: <LocationOn sx={{ fontSize: 18 }} /> },
     { id: "wishlist",      label: "Wishlist",         href: "/customer/favourites",      icon: <FavoriteBorder sx={{ fontSize: 18 }} /> },
     { id: "cart",          label: "My Cart",          href: "/customer/cart",          icon: <ShoppingCartCheckout sx={{ fontSize: 18 }} /> },
     { id: "order-history", label: "Order History",    href: "/customer/orders", icon: <History sx={{ fontSize: 18 }} /> },
     { id: "transactions",  label: "Transactions",     href: "/customer/transactions",  icon: <ReceiptLong sx={{ fontSize: 18 }} /> },
+    { id: "settings",      label: "Settings",         href: "/customer/CustomerProfile",    icon: <SettingsOutlined sx={{ fontSize: 18 }} /> },
   ];
 
+  const settingsSubItems = [
+    { id: "account", label: "Account", href: "/customer/CustomerProfile?section=account" },
+    { id: "addresses", label: "Addresses", href: "/customer/CustomerProfile?section=addresses" },
+    { id: "security", label: "Security", href: "/customer/CustomerProfile?section=security" },
+    { id: "preferences", label: "Preferences", href: "/customer/CustomerProfile?section=preferences" },
+    { id: "support", label: "Support", href: "/customer/CustomerProfile?section=support" },
+    { id: "actions", label: "Actions", href: "/customer/CustomerProfile?section=actions" },
+  ];
+
+  const showSettingsSubnav = settingsOpen;
+  const sectionParam = searchParams.get("section");
+  const activeSettingsSection = settingsSubItems.some((item) => item.id === sectionParam)
+    ? sectionParam
+    : "account";
+
   const isActive = (item) => {
-    const profileTabs = new Set(["personal", "password", "addresses", "order-history", "transactions"]);
+    const profileTabs = new Set(["settings", "order-history", "transactions"]);
     if (profileTabs.has(item.id)) {
       return activeTab === item.id;
     }
     return pathname === item.href;
   };
+
+  useEffect(() => {
+    if (activeTab === "settings") {
+      setSettingsOpen(true);
+    } else {
+      setSettingsOpen(false);
+    }
+  }, [activeTab]);
+
+  const handleSettingsClick = (event) => {
+    if (activeTab === "settings") {
+      event.preventDefault();
+      setSettingsOpen((prev) => !prev);
+      return;
+    }
+    setSettingsOpen(true);
+  };
+
+  if (!isVerified) return null;
 
   const W  = 252;
   const WC = 66;
@@ -94,16 +150,16 @@ export default function CustomerLayout({ children }) {
           flex: 1;
           display: flex;
           flex-direction: column;
-          background: rgba(255,255,255,0.8);
+          background: var(--sidebar-bg);
           backdrop-filter: blur(22px);
           -webkit-backdrop-filter: blur(22px);
-          border: 1px solid rgba(255,195,220,0.38);
+          border: 1px solid var(--sidebar-border);
           border-radius: 20px;
           padding: 12px 10px 14px;
           box-shadow:
-            0 1px 3px rgba(200,60,110,0.04),
+            0 1px 3px rgba(0,0,0,0.06),
             0 10px 30px rgba(200,60,110,0.08),
-            inset 0 1px 0 rgba(255,255,255,0.88);
+            inset 0 1px 0 rgba(255,255,255,0.4);
           overflow: hidden;
           position: relative;
         }
@@ -124,15 +180,15 @@ export default function CustomerLayout({ children }) {
           flex-shrink: 0;
           width: 26px; height: 26px;
           border-radius: 8px;
-          border: 1px solid rgba(220,140,175,0.35);
-          background: rgba(255,230,243,0.9);
-          color: #bf4f7e;
+          border: 1px solid var(--sidebar-border);
+          background: var(--sidebar-pill);
+          color: var(--sidebar-text);
           display: flex; align-items: center; justify-content: center;
           cursor: pointer;
           transition: background 0.18s, box-shadow 0.18s, transform 0.18s;
         }
         .csl-toggle:hover {
-          background: #ffd0e8;
+          background: var(--sidebar-hover);
           box-shadow: 0 4px 12px rgba(200,55,105,0.18);
           transform: scale(1.1);
         }
@@ -168,13 +224,18 @@ export default function CustomerLayout({ children }) {
           padding: 8px 8px;
           border-radius: 13px;
           text-decoration: none;
-          color: #7e4b68;
+          color: var(--sidebar-text);
           font-size: 13px;
           font-weight: 600;
           white-space: nowrap;
           overflow: hidden;
           position: relative;
           transition: background 0.16s, color 0.16s, box-shadow 0.16s, padding 0.3s;
+          border: 0;
+          background: none;
+          width: 100%;
+          text-align: left;
+          cursor: pointer;
         }
         .csl-sidebar.collapsed .csl-item {
           padding: 8px 0;
@@ -182,12 +243,12 @@ export default function CustomerLayout({ children }) {
           gap: 0;
         }
         .csl-item:hover {
-          background: rgba(255,210,230,0.5);
-          color: #ad2f66;
+          background: var(--sidebar-hover);
+          color: var(--accent-strong);
         }
         .csl-item.active {
-          background: linear-gradient(110deg, #fce0ee 0%, #fdedf6 100%);
-          color: #aa2860;
+          background: var(--sidebar-active);
+          color: var(--accent-strong);
           font-weight: 700;
           box-shadow: 0 2px 10px rgba(200,55,105,0.11);
         }
@@ -206,17 +267,48 @@ export default function CustomerLayout({ children }) {
           width: 32px; height: 32px;
           border-radius: 9px;
           display: flex; align-items: center; justify-content: center;
-          background: rgba(255,225,240,0.7);
-          color: #bf4f7e;
+          background: var(--sidebar-icon-bg);
+          color: var(--accent-strong);
           transition: background 0.16s, width 0.3s, height 0.3s;
         }
-        .csl-item:hover .csl-icon      { background: rgba(255,205,228,0.85); }
-        .csl-item.active .csl-icon     { background: rgba(240,120,170,0.18); color: #aa2860; }
+        .csl-item:hover .csl-icon      { background: var(--sidebar-icon-hover); }
+        .csl-item.active .csl-icon     { background: var(--sidebar-icon-active); color: var(--accent-strong); }
         .csl-sidebar.collapsed .csl-icon {
           width: 36px; height: 36px;
           border-radius: 11px;
           box-shadow: 0 2px 7px rgba(195,55,105,0.09);
         }
+
+        .csl-subnav {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          margin: 8px 10px 10px 42px;
+          padding: 6px 0 4px;
+        }
+        .csl-subitem {
+          border: 0;
+          border-radius: 14px;
+          padding: 10px 14px;
+          font-size: 13px;
+          font-weight: 700;
+          text-decoration: none;
+          color: #8b5971;
+          background: rgba(255, 235, 245, 0.85);
+          box-shadow: 0 8px 20px rgba(220, 110, 160, 0.12);
+          transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+        }
+        .csl-subitem:hover {
+          transform: translateX(2px);
+          background: rgba(255, 226, 238, 0.95);
+          box-shadow: 0 12px 22px rgba(220, 110, 160, 0.18);
+        }
+        .csl-subitem.active {
+          background: linear-gradient(135deg, #e91e78, #c2185b);
+          color: #fff;
+          box-shadow: 0 16px 30px rgba(220, 60, 110, 0.28);
+        }
+        .csl-sidebar.collapsed .csl-subnav { display: none; }
         .csl-sidebar.collapsed .csl-item.active .csl-icon {
           box-shadow: 0 4px 13px rgba(195,55,105,0.22);
         }
@@ -239,7 +331,7 @@ export default function CustomerLayout({ children }) {
           left: calc(100% + 10px);
           top: 50%;
           transform: translateY(-50%);
-          background: #8c2252;
+          background: var(--accent-strong);
           color: #fff;
           font-size: 11.5px;
           font-weight: 700;
@@ -256,7 +348,7 @@ export default function CustomerLayout({ children }) {
           right: 100%; top: 50%;
           transform: translateY(-50%);
           border: 5px solid transparent;
-          border-right-color: #8c2252;
+          border-right-color: var(--accent-strong);
         }
         .csl-sidebar.collapsed .csl-tip-wrap:hover .csl-tip { display: block; }
 
@@ -266,7 +358,7 @@ export default function CustomerLayout({ children }) {
           padding: 68px 28px 52px 22px;
           min-height: 100vh;
           transition: margin-left 0.3s cubic-bezier(.4,0,.2,1);
-          background: #fdf4f8;
+          background: var(--content-bg);
         }
         .sidebar-collapsed .csl-content { margin-left: ${WC}px; }
 
@@ -280,9 +372,9 @@ export default function CustomerLayout({ children }) {
         .csl-hamburger {
           width: 36px; height: 36px;
           border-radius: 11px;
-          border: 1px solid rgba(220,140,175,0.4);
-          background: rgba(255,233,245,0.96);
-          color: #bf4f7e;
+          border: 1px solid var(--sidebar-border);
+          background: var(--sidebar-pill);
+          color: var(--sidebar-text);
           display: flex; align-items: center; justify-content: center;
           cursor: pointer;
           font-size: 17px;
@@ -306,7 +398,7 @@ export default function CustomerLayout({ children }) {
             transition: transform 0.26s cubic-bezier(.4,0,.2,1);
             top: 0; height: 100%;
             padding-top: 78px;
-            background: rgba(255,248,252,0.98);
+            background: var(--sidebar-bg);
           }
           .csl-sidebar.mobile-open { transform: translateX(0); }
           .csl-toggle { display: none; }
@@ -340,18 +432,46 @@ export default function CustomerLayout({ children }) {
           <ul className="csl-nav">
             {allItems.map((item, idx) => (
               <li key={item.id}>
-                {idx === 1 && <div className="csl-sep" />}
+                {idx === allItems.length - 1 && <div className="csl-sep" />}
                 <div className="csl-tip-wrap">
-                  <Link
-                    href={item.href}
-                    className={`csl-item${isActive(item) ? " active" : ""}`}
-                    onClick={() => setMobileSidebarOpen(false)}
-                  >
-                    <span className="csl-icon">{item.icon}</span>
-                    <span className="csl-label">{item.label}</span>
-                  </Link>
+                  {item.id === "settings" ? (
+                    <Link
+                      href={`${item.href}?section=${activeSettingsSection}`}
+                      className={`csl-item${isActive(item) ? " active" : ""}`}
+                      onClick={(event) => {
+                        handleSettingsClick(event);
+                        setMobileSidebarOpen(false);
+                      }}
+                    >
+                      <span className="csl-icon">{item.icon}</span>
+                      <span className="csl-label">{item.label}</span>
+                    </Link>
+                  ) : (
+                    <Link
+                      href={item.href}
+                      className={`csl-item${isActive(item) ? " active" : ""}`}
+                      onClick={() => setMobileSidebarOpen(false)}
+                    >
+                      <span className="csl-icon">{item.icon}</span>
+                      <span className="csl-label">{item.label}</span>
+                    </Link>
+                  )}
                   <span className="csl-tip">{item.label}</span>
                 </div>
+                {item.id === "settings" && showSettingsSubnav && (
+                  <div className="csl-subnav">
+                    {settingsSubItems.map((sub) => (
+                      <Link
+                        key={sub.id}
+                        href={sub.href}
+                        className={`csl-subitem${activeSettingsSection === sub.id ? " active" : ""}`}
+                        onClick={() => setMobileSidebarOpen(false)}
+                      >
+                        {sub.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </li>
             ))}
           </ul>

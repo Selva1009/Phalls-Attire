@@ -182,7 +182,98 @@ const normalizeText = (value) =>
   String(value || "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
+
+const synonyms = {
+  churidar: ["chudi", "chudidhar", "salwar", "set"],
+  kurti: ["kurta", "top", "long top"],
+  anarkali: ["gown", "party dress"],
+  nightwear: ["nighty", "night dress", "sleepwear"],
+  dupatta: ["shawl", "scarf"],
+};
+
+const synonymEntries = Object.entries(synonyms).map(([key, values]) => ({
+  key: normalizeText(key),
+  values: values.map((value) => normalizeText(value)),
+}));
+
+const colorSynonyms = {
+  black: ["black", "jet", "charcoal"],
+  white: ["white", "ivory", "cream", "offwhite", "off white"],
+  red: ["red", "maroon", "burgundy", "wine"],
+  blue: ["blue", "navy", "sky", "teal", "cyan"],
+  green: ["green", "olive", "emerald", "mint"],
+  yellow: ["yellow", "mustard"],
+  orange: ["orange", "peach", "coral"],
+  pink: ["pink", "rose", "blush", "fuchsia"],
+  purple: ["purple", "lavender", "lilac", "violet"],
+  brown: ["brown", "tan", "beige", "khaki", "camel"],
+  grey: ["grey", "gray", "silver"],
+};
+
+const colorEntries = Object.entries(colorSynonyms).map(([key, values]) => ({
+  key: normalizeText(key),
+  values: values.map((value) => normalizeText(value)),
+}));
+
+const resolveSynonym = (term) => {
+  const normalized = normalizeText(term);
+  if (!normalized) return "";
+  for (const entry of synonymEntries) {
+    if (normalized === entry.key) return entry.key;
+    if (entry.values.includes(normalized)) return entry.key;
+  }
+  return normalized;
+};
+
+const resolveColor = (term) => {
+  const normalized = normalizeText(term);
+  if (!normalized) return "";
+  for (const entry of colorEntries) {
+    if (normalized === entry.key) return entry.key;
+    if (entry.values.includes(normalized)) return entry.key;
+  }
+  return "";
+};
+
+const getWordSet = (value) =>
+  new Set(
+    normalizeText(value)
+      .split(" ")
+      .map((token) => token.trim())
+      .filter(Boolean)
+  );
+
+const levenshtein = (a, b) => {
+  if (a === b) return 0;
+  if (!a) return b.length;
+  if (!b) return a.length;
+  const aLen = a.length;
+  const bLen = b.length;
+  const dp = Array.from({ length: aLen + 1 }, () => new Array(bLen + 1).fill(0));
+  for (let i = 0; i <= aLen; i += 1) dp[i][0] = i;
+  for (let j = 0; j <= bLen; j += 1) dp[0][j] = j;
+  for (let i = 1; i <= aLen; i += 1) {
+    for (let j = 1; j <= bLen; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + cost
+      );
+    }
+  }
+  return dp[aLen][bLen];
+};
+
+const isFuzzyMatch = (source, target) => {
+  if (!source || !target) return false;
+  if (source.includes(target) || target.includes(source)) return true;
+  const distance = levenshtein(source, target);
+  const threshold = target.length <= 4 ? 1 : target.length <= 7 ? 2 : 3;
+  return distance <= threshold;
+};
 
 const categoryKeywords = {
   "Women's Tops": ["women tops", "womens top", "top", "tops", "blouse", "tshirt", "shirt"],
@@ -198,12 +289,131 @@ const categoryKeywords = {
 
 const getProductSearchText = (product) =>
   normalizeText([
-    product.category,
-    product.brand,
     product.productName,
-    product.seller,
+    product.category,
     product.description,
   ].join(" "));
+
+const getSearchTokens = (query) =>
+  normalizeText(query)
+    .split(" ")
+    .map((token) => token.trim())
+    .filter(Boolean);
+
+const getClosestCategory = (query) => {
+  const normalizedQuery = normalizeText(query);
+  if (!normalizedQuery) return "";
+  let bestCategory = "";
+  let bestScore = 0;
+
+  Object.entries(categoryKeywords).forEach(([category, keywords]) => {
+    const normalizedCategory = normalizeText(category);
+    const keywordList = [normalizedCategory, ...keywords.map(normalizeText)];
+    let score = 0;
+    keywordList.forEach((keyword) => {
+      if (!keyword) return;
+      if (keyword.includes(normalizedQuery) || normalizedQuery.includes(keyword)) {
+        score = Math.max(score, 4);
+      } else if (isFuzzyMatch(keyword, normalizedQuery)) {
+        score = Math.max(score, 3);
+      }
+    });
+    if (score > bestScore) {
+      bestScore = score;
+      bestCategory = category;
+    }
+  });
+
+  return bestCategory;
+};
+
+const scoreProduct = (product, queryTokens) => {
+  const name = normalizeText(product.productName);
+  const category = normalizeText(product.category);
+  const description = normalizeText(product.description);
+  const scoreBoosts = [];
+
+  let score = 0;
+
+  queryTokens.forEach((token) => {
+    if (!token) return;
+    if (name === token) score = Math.max(score, 300);
+    if (name.includes(token)) score = Math.max(score, 220);
+    if (category.includes(token)) score = Math.max(score, 170);
+    if (description.includes(token)) score = Math.max(score, 120);
+
+    if (isFuzzyMatch(name, token)) scoreBoosts.push(90);
+    if (isFuzzyMatch(category, token)) scoreBoosts.push(70);
+    if (isFuzzyMatch(description, token)) scoreBoosts.push(50);
+  });
+
+  if (scoreBoosts.length) {
+    score = Math.max(score, Math.max(...scoreBoosts));
+  }
+
+  return score;
+};
+
+const applySearch = (products, query) => {
+  const baseQuery = normalizeText(query);
+  if (!baseQuery) {
+    return products;
+  }
+
+  const baseTokens = getSearchTokens(baseQuery);
+  const colorTokens = baseTokens.map(resolveColor).filter(Boolean);
+  const queryTokens = baseTokens.filter((token) => !resolveColor(token));
+  const synonymTokens = baseTokens.map(resolveSynonym);
+  const expandedTokens = Array.from(new Set([...queryTokens, ...synonymTokens]));
+
+  const applyColorFilter = (items) => {
+    if (!colorTokens.length) return items;
+    const uniqueColors = Array.from(new Set(colorTokens));
+    return items.filter((product) => {
+      const words = getWordSet(
+        [product.productName, product.category, product.description].join(" ")
+      );
+      return uniqueColors.some((color) => words.has(color));
+    });
+  };
+
+  const searchWithTokens = (items, tokens) => {
+    const scored = items
+      .map((product) => ({
+        product,
+        score: scoreProduct(product, tokens),
+      }))
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map((entry) => entry.product);
+    return scored;
+  };
+
+  let pool = applyColorFilter(products);
+  if (colorTokens.length && !pool.length) {
+    return [];
+  }
+
+  if (!queryTokens.length) {
+    return pool;
+  }
+
+  let results = searchWithTokens(pool, queryTokens);
+  if (!results.length) {
+    results = searchWithTokens(pool, expandedTokens);
+  }
+
+  if (!results.length) {
+    const closestCategory = getClosestCategory(baseQuery);
+    if (closestCategory) {
+      results = applyColorFilter(
+        products.filter((product) => matchesCategory(product, closestCategory))
+      );
+    }
+  }
+
+  return results.length ? results : pool;
+};
 
 const matchesCategory = (product, category) => {
   const normalizedCategory = normalizeText(category);
@@ -227,7 +437,7 @@ const matchesCategory = (product, category) => {
   return keywords.some((keyword) => productDescription.includes(normalizeText(keyword)));
 };
 
-function ProductCard({ product, onClick, onToggleWishlist, isWishlisted }) {
+function ProductCard({ product, onClick, onToggleWishlist, isWishlisted, imageCacheBuster }) {
   const stockStatus = product.stock_status || product.stockStatus || "";
   const stockClass =
     stockStatus === "In Stock"
@@ -244,7 +454,7 @@ function ProductCard({ product, onClick, onToggleWishlist, isWishlisted }) {
         <img
           src={
             product.productImage
-              ? `${API_BASE_URL}/uploads/${product.productImage}`
+              ? `${API_BASE_URL}/uploads/${product.productImage}?v=${imageCacheBuster}`
               : product.localImage || "/CordSet1 (21).jpeg"
           }
           alt={product.productName}
@@ -261,7 +471,6 @@ function ProductCard({ product, onClick, onToggleWishlist, isWishlisted }) {
         >
           <Heart size={18} fill={isWishlisted ? "currentColor" : "none"} />
         </button>
-        <span className={styles.productBadge}>{product.category || "Featured"}</span>
         {stockStatus && (
           <span className={`${styles.stockBadge} ${stockClass}`}>{stockStatus}</span>
         )}
@@ -306,6 +515,7 @@ export default function ProductsPage() {
   const [wishlist, setWishlist] = useState([]);
   const [isMounted, setIsMounted] = useState(false);
   const [wishlistLoaded, setWishlistLoaded] = useState(false);
+  const imageCacheBuster = useMemo(() => Date.now(), []);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -431,10 +641,7 @@ export default function ProductsPage() {
     let filtered = [...products];
 
     if (searchQuery) {
-      const normalizedQuery = normalizeText(searchQuery);
-      filtered = filtered.filter((product) =>
-        getProductSearchText(product).includes(normalizedQuery)
-      );
+      filtered = applySearch(filtered, searchQuery);
     }
 
     if (categoryFilter) {
@@ -458,20 +665,20 @@ export default function ProductsPage() {
     setDisplayedProducts(filtered.slice(startIndex, startIndex + PRODUCTS_PER_PAGE));
   }, [categoryFilter, currentPage, priceFilter, products, searchQuery]);
 
+  const searchedProducts = useMemo(
+    () => (searchQuery ? applySearch(products, searchQuery) : products),
+    [products, searchQuery]
+  );
+
   const filteredProducts = useMemo(
     () =>
-      products.filter((product) => {
-        if (searchQuery && !getProductSearchText(product).includes(normalizeText(searchQuery))) {
-          return false;
-        }
-
+      searchedProducts.filter((product) => {
         if (categoryFilter && !matchesCategory(product, categoryFilter)) {
           return false;
         }
-
         return true;
       }),
-    [categoryFilter, products, searchQuery]
+    [categoryFilter, searchedProducts]
   );
 
   if (!isMounted || !wishlistLoaded) return null;
@@ -657,6 +864,7 @@ export default function ProductsPage() {
                       onClick={handleProductClick}
                       onToggleWishlist={toggleWishlist}
                       isWishlisted={wishlist.includes(product.id)}
+                      imageCacheBuster={imageCacheBuster}
                     />
                   ))
                 ) : (
