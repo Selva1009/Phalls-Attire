@@ -5,6 +5,7 @@ import { Eye, EyeOff } from "lucide-react";
 import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
 import { showAuthSuccess } from "@/lib/authAlerts";
+import { clearAuthRedirect, setSignupSession } from "@/lib/customerSession";
 
 const CustomerSignup = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -74,7 +75,12 @@ const CustomerSignup = () => {
           text: "You have successfully signed up.",
         });
         if (result.isConfirmed) {
-          router.push("./SignIn");
+          setSignupSession({
+            name: formValues.name.trim(),
+            email: formValues.email.trim(),
+          });
+          clearAuthRedirect();
+          router.push("/customer/products");
         }
       } else {
         Swal.fire({

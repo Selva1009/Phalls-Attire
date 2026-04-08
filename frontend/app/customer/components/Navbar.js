@@ -20,12 +20,15 @@ import {
 import Link from "next/link";
 import Swal from "sweetalert2";
 import { showLogoutSuccess } from "@/lib/authAlerts";
+import { clearSignupSession, hasFullCustomerAuth } from "@/lib/customerSession";
 
 const Navbar = ({
   setSearchQuery,
   setPriceFilter,
   disableFilters,
   disableSearch,
+  variant = "default",
+  onAuthTrigger,
 }) => {
   const [search, setSearch] = useState("");
   const [cartCount, setCartCount] = useState(0);
@@ -36,6 +39,13 @@ const Navbar = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
   const priceMenuRef = useRef(null);
+  const isHomeVariant = variant === "home";
+  const navLinks = [
+    { label: "Home", href: "/customer/products" },
+    { label: "Categories", href: "/customer/products#categories" },
+    { label: "New Arrivals", href: "/customer/products#highlights" },
+    { label: "Best Sellers", href: "/customer/products#explore" },
+  ];
 
   const [customerUser, setCustomerUser] = useState(() => {
     if (typeof window === "undefined") return null;
@@ -82,7 +92,11 @@ const Navbar = ({
 
   useEffect(() => {
     const updateCustomerUser = () => {
-      setCustomerUser(JSON.parse(localStorage.getItem("customerUser")));
+      const stored = JSON.parse(localStorage.getItem("customerUser"));
+      setCustomerUser(stored);
+      if (stored?.id) {
+        fetchCartCount(stored.id);
+      }
       syncWishlistCount();
     };
 
@@ -128,6 +142,22 @@ const Navbar = ({
     return () => window.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const triggerAuth = (mode = "login") => {
+    if (onAuthTrigger) {
+      onAuthTrigger(mode);
+      return;
+    }
+    router.push(mode === "signup" ? "/customer-signup" : "/SignIn");
+  };
+
+  const handleProtectedNav = (path) => {
+    if (!hasFullCustomerAuth()) {
+      triggerAuth("login");
+      return;
+    }
+    router.push(path);
+  };
+
   const handleLogout = async () => {
     const result = await Swal.fire({
       title: "Sign out?",
@@ -153,6 +183,7 @@ const Navbar = ({
 
     if (result.isConfirmed) {
       localStorage.clear();
+      clearSignupSession();
       await showLogoutSuccess("You have been signed out successfully.");
       router.push("/SignIn");
     }
@@ -165,7 +196,7 @@ const Navbar = ({
 
   return (
     <>
-      <nav className="customer-nav customer-nav-desktop">
+      <nav className={`customer-nav customer-nav-desktop ${isHomeVariant ? "customer-nav-home" : ""}`}>
         <div className="customer-nav-brand-group">
           <Link href="/customer/products">
             <div className="customer-nav-logo-shell">
@@ -185,7 +216,21 @@ const Navbar = ({
               Curated styles for every occasion
             </p>
           </div>
+
+          {isHomeVariant && (
+            <div className="customer-nav-links">
+              {navLinks.map((link) => (
+                <a key={link.href} href={link.href}>
+                  {link.label}
+                </a>
+              ))}
+            </div>
+          )}
         </div>
+
+        {isHomeVariant && (
+          <div className="customer-nav-title">PHALLS ATTIRE</div>
+        )}
 
         <div className="customer-nav-center">
           {!disableSearch && (
@@ -259,70 +304,93 @@ const Navbar = ({
             <span>{currentDate}</span>
           </div>
 
-          <Link href="/customer/favourites" className="customer-nav-icon-button">
+          <button
+            type="button"
+            className="customer-nav-icon-button"
+            onClick={() => handleProtectedNav("/customer/favourites")}
+          >
             <Heart className="customer-nav-action-icon" size={22} />
             {wishlistCount > 0 && (
               <span className="customer-nav-counter customer-nav-counter-heart">
                 {wishlistCount}
               </span>
             )}
-          </Link>
+          </button>
           
-          <Link href="/customer/cart" className="customer-nav-icon-button">
+          <button
+            type="button"
+            className="customer-nav-icon-button"
+            onClick={() => handleProtectedNav("/customer/cart")}
+          >
             <ShoppingCart className="customer-nav-action-icon" size={22} />
             {cartCount > 0 && (
               <span className="customer-nav-counter">{cartCount}</span>
             )}
-          </Link>
+          </button>
 
-          <div className="customer-nav-profile" onClick={() => setDropdownOpen(!dropdownOpen)}>
-             <User className="customer-nav-action-icon" size={22} />
+          {customerUser ? (
+            <div className="customer-nav-profile" onClick={() => setDropdownOpen(!dropdownOpen)}>
+              <User className="customer-nav-action-icon" size={22} />
 
-            
-           
-            <div className="customer-nav-profile-copy">
-              {customerUser && (
+              <div className="customer-nav-profile-copy">
                 <span>
                   {customerUser.personName}
                   <p>Customer User</p>
                 </span>
+              </div>
+
+              {dropdownOpen && (
+                <div className="customer-nav-dropdown">
+                  <ul>
+                    <li>
+                      <Link
+                        href="/customer/profile"
+                        className="customer-nav-dropdown-item"
+                      >
+                        <User size={20} className="customer-nav-action-icon" />
+                        <span>My Profile</span>
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        href="/customer/PoAutomation"
+                        className="customer-nav-dropdown-item"
+                      >
+                        <Package size={20} className="customer-nav-action-icon" />
+                        <span>My Orders</span>
+                      </Link>
+                    </li>
+                    <li>
+                      <button
+                        onClick={handleLogout}
+                        className="customer-nav-dropdown-item customer-nav-dropdown-logout"
+                      >
+                        <LogOut size={20} className="customer-nav-logout-icon" />
+                        <span>Logout</span>
+                      </button>
+                    </li>
+                  </ul>
+                </div>
               )}
             </div>
-
-            {dropdownOpen && (
-              <div className="customer-nav-dropdown">
-                <ul>
-                  <li>
-                    <Link
-                      href="/customer/profile"
-                      className="customer-nav-dropdown-item"
-                    >
-                      <User size={20} className="customer-nav-action-icon" />
-                      <span>My Profile</span>
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/customer/PoAutomation"
-                      className="customer-nav-dropdown-item"
-                    >
-                      <Package size={20} className="customer-nav-action-icon" />
-                      <span>My Orders</span>
-                    </Link>
-                  </li>
-                  <li>
-                    <button
-                      onClick={handleLogout}
-                      className="customer-nav-dropdown-item customer-nav-dropdown-logout"
-                    >
-                      <LogOut size={20} className="customer-nav-logout-icon" />
-                      <span>Logout</span>
-                    </button>
-                  </li>
-                </ul>
-              </div>
-            )}
-          </div>
+          ) : (
+            <div className="customer-nav-auth">
+              <button
+                type="button"
+                className="customer-nav-auth-button customer-nav-auth-secondary"
+                onClick={() => triggerAuth("login")}
+              >
+                Login
+              </button>
+              <button
+                type="button"
+                className="customer-nav-auth-button customer-nav-auth-primary"
+                onClick={() => triggerAuth("signup")}
+              >
+                Sign Up
+              </button>
+            </div>
+          )}
         </div>
       </nav>
 
@@ -345,21 +413,29 @@ const Navbar = ({
         </div>
 
         <div className="customer-nav-mobile-actions">
-          <Link href="/customer/favourites" className="customer-nav-icon-button customer-nav-mobile-icon">
+          <button
+            type="button"
+            className="customer-nav-icon-button customer-nav-mobile-icon"
+            onClick={() => handleProtectedNav("/customer/favourites")}
+          >
             <Heart className="customer-nav-action-icon" size={18} />
             {wishlistCount > 0 && (
               <span className="customer-nav-counter customer-nav-counter-heart">
                 {wishlistCount}
               </span>
             )}
-          </Link>
+          </button>
 
-          <Link href="/customer/cart" className="customer-nav-icon-button customer-nav-mobile-icon">
+          <button
+            type="button"
+            className="customer-nav-icon-button customer-nav-mobile-icon"
+            onClick={() => handleProtectedNav("/customer/cart")}
+          >
             <ShoppingCart className="customer-nav-action-icon" size={18} />
             {cartCount > 0 && (
               <span className="customer-nav-counter">{cartCount}</span>
             )}
-          </Link>
+          </button>
 
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -383,73 +459,123 @@ const Navbar = ({
             className="customer-nav-mobile-drawer"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="customer-nav-mobile-user">
-              <div className="customer-nav-mobile-avatar">
-                <User size={24} className="customer-nav-action-icon" />
+            {customerUser ? (
+              <div className="customer-nav-mobile-user">
+                <div className="customer-nav-mobile-avatar">
+                  <User size={24} className="customer-nav-action-icon" />
+                </div>
+                <div>
+                  <p className="customer-nav-mobile-user-name">
+                    {customerUser?.personName || "Customer User"}
+                  </p>
+                  <p className="customer-nav-mobile-user-role">Customer User</p>
+                </div>
               </div>
-              <div>
-                <p className="customer-nav-mobile-user-name">
-                  {customerUser?.personName || "Customer User"}
-                </p>
-                <p className="customer-nav-mobile-user-role">Customer User</p>
+            ) : (
+              <div className="customer-nav-mobile-user customer-nav-mobile-guest">
+                <div className="customer-nav-mobile-avatar">
+                  <User size={24} className="customer-nav-action-icon" />
+                </div>
+                <div>
+                  <p className="customer-nav-mobile-user-name">Guest</p>
+                  <p className="customer-nav-mobile-user-role">Browse premium edits</p>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="customer-nav-mobile-links">
-              {/* <div className="customer-nav-mobile-banner">
-                <Sparkles size={18} className="customer-nav-logout-icon" />
-                <span>Curated shopping flow</span>
-              </div> */}
+              {isHomeVariant &&
+                navLinks.map((link) => (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    className="customer-nav-mobile-link"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    {link.label}
+                  </a>
+                ))}
 
-              <Link
-                href="/customer/profile"
-                className="customer-nav-mobile-link"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <User size={20} className="customer-nav-action-icon" />
-                <span>My Profile</span>
-              </Link>
+              {customerUser && (
+                <>
+                  <Link
+                    href="/customer/profile"
+                    className="customer-nav-mobile-link"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <User size={20} className="customer-nav-action-icon" />
+                    <span>My Profile</span>
+                  </Link>
 
-              <Link
-                href="/customer/favourites"
-                className="customer-nav-mobile-link"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <Heart size={20} className="customer-nav-action-icon" />
-                <span>Favourite ({wishlistCount})</span>
-              </Link>
+                  <Link
+                    href="/customer/favourites"
+                    className="customer-nav-mobile-link"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Heart size={20} className="customer-nav-action-icon" />
+                    <span>Favourite ({wishlistCount})</span>
+                  </Link>
 
-              <Link
-                href="/customer/cart"
-                className="customer-nav-mobile-link"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <ShoppingCart size={20} className="customer-nav-action-icon" />
-                <span>My Cart ({cartCount})</span>
-              </Link>
+                  <Link
+                    href="/customer/cart"
+                    className="customer-nav-mobile-link"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <ShoppingCart size={20} className="customer-nav-action-icon" />
+                    <span>My Cart ({cartCount})</span>
+                  </Link>
 
-              <Link
-                href="/customer/PoAutomation"
-                className="customer-nav-mobile-link"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <Package size={20} className="customer-nav-action-icon" />
-                <span>My Orders</span>
-              </Link>
+                  <Link
+                    href="/customer/PoAutomation"
+                    className="customer-nav-mobile-link"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Package size={20} className="customer-nav-action-icon" />
+                    <span>My Orders</span>
+                  </Link>
+                </>
+              )}
+
+              {!customerUser && (
+                <>
+                  <button
+                    type="button"
+                    className="customer-nav-mobile-link"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      triggerAuth("login");
+                    }}
+                  >
+                    Login
+                  </button>
+                  <button
+                    type="button"
+                    className="customer-nav-mobile-link customer-nav-mobile-cta"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      triggerAuth("signup");
+                    }}
+                  >
+                    Sign Up
+                  </button>
+                </>
+              )}
             </div>
 
-            <div className="customer-nav-mobile-footer">
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  handleLogout();
-                }}
-                className="customer-nav-mobile-link customer-nav-mobile-logout"
-              >
-                <LogOut size={20} className="customer-nav-logout-icon" />
-                <span>Logout</span>
-              </button>
-            </div>
+            {customerUser && (
+              <div className="customer-nav-mobile-footer">
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    handleLogout();
+                  }}
+                  className="customer-nav-mobile-link customer-nav-mobile-logout"
+                >
+                  <LogOut size={20} className="customer-nav-logout-icon" />
+                  <span>Logout</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

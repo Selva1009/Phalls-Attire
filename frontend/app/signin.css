@@ -1,21 +1,28 @@
 .signin-container {
-  height: 100vh;
-  display: grid;
-  grid-template-columns: 40% 60%;
-  background: #f8e5ef;
+  min-height: 100vh;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1b1117;
   overflow: hidden;
 }
 
 .signin-left {
-  position: relative;
-  min-height: 100%;
+  position: absolute;
+  inset: 0;
   overflow: hidden;
+  z-index: 0;
 }
 
 .signin-left-slides,
 .signin-left-overlay {
   position: absolute;
   inset: 0;
+}
+
+.signin-left-slides {
+  filter: saturate(1.05) contrast(1.05);
 }
 
 .signin-left-image {
@@ -25,8 +32,8 @@
   height: 100%;
   object-fit: cover;
   opacity: 0;
-  transform: scale(1.06);
-  transition: opacity 1s ease, transform 4.2s ease;
+  transform: scale(1.04);
+  transition: opacity 1.4s ease, transform 6s ease;
 }
 
 .signin-left-image-active {
@@ -35,7 +42,10 @@
 }
 
 .signin-left-overlay {
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.4), rgba(255, 105, 180, 0.2));
+  background:
+    linear-gradient(120deg, rgba(14, 8, 12, 0.72), rgba(120, 50, 86, 0.28) 45%, rgba(255, 223, 236, 0.18)),
+    radial-gradient(circle at 20% 25%, rgba(255, 255, 255, 0.08), transparent 45%),
+    radial-gradient(circle at 80% 78%, rgba(255, 255, 255, 0.1), transparent 40%);
 }
 
 .signin-left-content {
@@ -75,14 +85,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px 20px;
-  background:
-    radial-gradient(circle at 18% 22%, rgba(255, 233, 243, 0.92), transparent 48%),
-    radial-gradient(circle at 82% 18%, rgba(210, 92, 147, 0.35), transparent 52%),
-    radial-gradient(circle at 78% 82%, rgba(134, 32, 84, 0.25), transparent 55%),
-    radial-gradient(rgba(255, 255, 255, 0.35) 1px, transparent 1px),
-    linear-gradient(160deg, #f8dbe7 0%, #f2aec9 45%, #c75a8f 100%);
-  background-size: auto, auto, auto, 28px 28px, auto;
+  padding: 48px 20px;
+  width: 100%;
+  z-index: 1;
+  background: transparent;
 }
 
 .signin-left-dots {
@@ -110,8 +116,8 @@
 }
 
 .signin-card {
-  width: min(420px, 100%);
-  padding: 26px 24px;
+  width: min(380px, 92vw);
+  padding: 28px 24px;
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.94);
   border: 1px solid rgba(255, 255, 255, 0.7);
@@ -264,6 +270,20 @@
   filter: brightness(0.96);
 }
 
+.signin-btn-outline {
+  margin-top: 12px;
+  background: #fff;
+  color: #ff2e93;
+  border: 1px solid rgba(255, 46, 147, 0.35);
+  box-shadow: 0 10px 25px rgba(255, 46, 147, 0.12);
+}
+
+.signin-btn-secondary {
+  background: #fce9f2;
+  color: #7d3a5a;
+  border: 1px solid rgba(255, 46, 147, 0.2);
+}
+
 .signin-btn:disabled {
   cursor: not-allowed;
   opacity: 0.72;
@@ -323,6 +343,48 @@
   color: #77606e;
 }
 
+.signin-phone-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.signin-switch {
+  margin-top: 12px;
+  display: inline-block;
+  text-align: center;
+}
+
+.signin-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 8px 0 16px;
+  padding: 6px;
+  border-radius: 14px;
+  background: #fde9f3;
+  border: 1px solid rgba(255, 46, 147, 0.12);
+}
+
+.signin-toggle-btn {
+  height: 40px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: #7d3a5a;
+  font: 600 12px var(--font-poppins), var(--font-manrope), sans-serif;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.25s ease, color 0.25s ease, transform 0.25s ease;
+}
+
+.signin-toggle-btn-active {
+  background: #fff;
+  color: #ff2e93;
+  box-shadow: 0 12px 26px rgba(255, 46, 147, 0.18);
+  transform: translateY(-1px);
+}
+
 @keyframes signin-fade-in {
   from {
     opacity: 0;
@@ -341,22 +403,30 @@
 }
 
 @media (max-width: 900px) {
-  .signin-container {
-    grid-template-columns: 1fr;
+  .signin-left-content {
+    left: 20px;
+    right: 20px;
+    text-align: center;
   }
 
-  .signin-left {
-    display: none;
+  .signin-left-dots {
+    left: 50%;
+    transform: translateX(-50%);
   }
 }
 
 @media (max-width: 640px) {
   .signin-right {
-    padding: 24px 16px;
+    padding: 28px 16px;
   }
 
   .signin-card {
     width: 100%;
     padding: 26px 20px;
+  }
+
+  .signin-left-content,
+  .signin-left-dots {
+    display: none;
   }
 }

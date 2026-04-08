@@ -4,9 +4,16 @@ import { API_BASE_URL } from "@/lib/api";
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Navbar from "../../components/Navbar";
+import AuthModal from "../../components/AuthModal";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import styles from "./product-detail.module.css";
+import {
+  clearAuthRedirect,
+  hasBrowseAccess,
+  hasFullCustomerAuth,
+  setAuthRedirect,
+} from "@/lib/customerSession";
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -17,6 +24,10 @@ const ProductDetail = () => {
   const [error, setError] = useState("");
   const [customerId, setCustomerId] = useState(null);
   const [cart, setCart] = useState([]);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authTab, setAuthTab] = useState("login");
+  const [isAuthed, setIsAuthed] = useState(() => hasBrowseAccess());
+  const [pendingRoute, setPendingRoute] = useState("");
   const imageCacheBuster = useMemo(() => Date.now(), []);
 
   useEffect(() => {
@@ -29,6 +40,17 @@ const ProductDetail = () => {
       setCart(storedCart);
     }
   }, []);
+
+  useEffect(() => {
+    if (!id) return;
+    const authed = hasBrowseAccess();
+    setIsAuthed(authed);
+    if (!authed) {
+      setAuthTab("login");
+      setAuthOpen(true);
+      setAuthRedirect(`/customer/product/${id}`);
+    }
+  }, [id]);
 
   useEffect(() => {
     if (!id) return;
@@ -72,12 +94,55 @@ const ProductDetail = () => {
     fetchSuggestions();
   }, [product]);
 
+  const syncCustomerFromStorage = () => {
+    if (typeof window === "undefined") return;
+    const storedCustomer = localStorage.getItem("customerUser");
+    const customerData = storedCustomer ? JSON.parse(storedCustomer) : null;
+    if (customerData) {
+      setCustomerId(customerData.id);
+      const storedCart =
+        JSON.parse(localStorage.getItem(`cart_${customerData?.id}`)) || [];
+      setCart(storedCart);
+    }
+  };
+
+  const openAuthModal = (mode = "login", route = "") => {
+    setAuthTab(mode);
+    setAuthOpen(true);
+    const targetRoute = route || (id ? `/customer/product/${id}` : "");
+    if (targetRoute) {
+      setPendingRoute(targetRoute);
+      setAuthRedirect(targetRoute);
+    }
+  };
+
+  const handleLoginSuccess = (data) => {
+    setAuthOpen(false);
+    clearAuthRedirect();
+    if (data.userType === "vendor-user") {
+      router.push("/vendorUser");
+      return;
+    }
+    const nextRoute = pendingRoute;
+    setPendingRoute("");
+    if (nextRoute && nextRoute !== `/customer/product/${id}`) {
+      router.push(nextRoute);
+      return;
+    }
+    setIsAuthed(true);
+    syncCustomerFromStorage();
+  };
+
+  const handleSignupSuccess = () => {
+    setAuthOpen(false);
+    setPendingRoute("");
+    clearAuthRedirect();
+    router.push("/customer/products");
+  };
+
   const handleAddToCart = async () => {
-    if (!customerId) {
-      toast.error("Please log in to add products to your cart.", {
-        position: "top-right",
-        autoClose: 3000,
-      });
+    if (!hasFullCustomerAuth() || !customerId) {
+      openAuthModal("login");
       return;
     }
     try {
@@ -91,7 +156,7 @@ const ProductDetail = () => {
         body: JSON.stringify(cartItem),
       });
       if (response.status === 401) {
-        router.push("/SignIn");
+        openAuthModal("login");
         return;
       }
       const data = await response.json();
@@ -124,9 +189,62 @@ const ProductDetail = () => {
     return <p className={styles.errorScreen}>{error}</p>;
   if (!product) return null;
 
+  if (!isAuthed) {
+    return (
+      <>
+        <Navbar
+          disableFilters={true}
+          disableSearch={true}
+          variant="home"
+          onAuthTrigger={openAuthModal}
+        />
+
+        <div className={styles.lockedShell}>
+          <div className={styles.lockedCard}>
+            <span className={styles.lockedEyebrow}>Members only</span>
+            <h1 className={styles.lockedTitle}>Sign in to view this product</h1>
+            <p className={styles.lockedText}>
+              Explore full product details, premium edits, and quick actions by
+              logging in or creating your account.
+            </p>
+            <div className={styles.lockedActions}>
+              <button
+                type="button"
+                className={styles.primaryButton}
+                onClick={() => openAuthModal("login")}
+              >
+                Login to Continue
+              </button>
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                onClick={() => openAuthModal("signup")}
+              >
+                Create Account
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <AuthModal
+          open={authOpen}
+          initialTab={authTab}
+          onClose={() => setAuthOpen(false)}
+          onLoginSuccess={handleLoginSuccess}
+          onSignupSuccess={handleSignupSuccess}
+        />
+      </>
+    );
+  }
+
   return (
     <>
-      <Navbar disableFilters={true} disableSearch={true} />
+      <Navbar
+        disableFilters={true}
+        disableSearch={true}
+        variant="home"
+        onAuthTrigger={openAuthModal}
+      />
       <ToastContainer />
 
       <main className={styles.shell}>
@@ -228,11 +346,23 @@ const ProductDetail = () => {
                   key={item.id}
                   className={styles.suggestCard}
                   style={{ "--i": i }}
-                  onClick={() => router.push(`/customer/product/${item.id}`)}
+                  onClick={() => {
+                    if (!hasBrowseAccess()) {
+                      openAuthModal("login", `/customer/product/${item.id}`);
+                      return;
+                    }
+                    router.push(`/customer/product/${item.id}`);
+                  }}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") router.push(`/customer/product/${item.id}`);
+                    if (e.key === "Enter") {
+                      if (!hasBrowseAccess()) {
+                        openAuthModal("login", `/customer/product/${item.id}`);
+                        return;
+                      }
+                      router.push(`/customer/product/${item.id}`);
+                    }
                   }}
                 >
                   <div className={styles.suggestImgBox}>
@@ -262,6 +392,14 @@ const ProductDetail = () => {
           </section>
         )}
       </main>
+
+      <AuthModal
+        open={authOpen}
+        initialTab={authTab}
+        onClose={() => setAuthOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
+        onSignupSuccess={handleSignupSuccess}
+      />
     </>
   );
 };

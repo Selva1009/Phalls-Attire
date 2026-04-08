@@ -5,6 +5,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Heart, Star } from "lucide-react";
 import Navbar from "../components/Navbar";
+import AuthModal from "../components/AuthModal";
+import {
+  clearAuthRedirect,
+  hasBrowseAccess,
+  hasFullCustomerAuth,
+  setAuthRedirect,
+} from "@/lib/customerSession";
 import styles from "./customer-page.module.css";
 
 const PRODUCTS_PER_PAGE = 20;
@@ -515,6 +522,9 @@ export default function ProductsPage() {
   const [wishlist, setWishlist] = useState([]);
   const [isMounted, setIsMounted] = useState(false);
   const [wishlistLoaded, setWishlistLoaded] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authTab, setAuthTab] = useState("login");
+  const [pendingRoute, setPendingRoute] = useState("");
   const imageCacheBuster = useMemo(() => Date.now(), []);
 
   const router = useRouter();
@@ -685,8 +695,44 @@ export default function ProductsPage() {
 
   const totalPages = Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE);
 
+  const openAuthModal = (mode = "login", route = "") => {
+    setAuthTab(mode);
+    setAuthOpen(true);
+    if (route) {
+      setPendingRoute(route);
+      setAuthRedirect(route);
+    } else {
+      setPendingRoute("");
+      clearAuthRedirect();
+    }
+  };
+
+  const handleLoginSuccess = (data) => {
+    setAuthOpen(false);
+    clearAuthRedirect();
+    if (data.userType === "vendor-user") {
+      router.push("/vendorUser");
+      return;
+    }
+    const nextRoute = pendingRoute || "/customer/products";
+    setPendingRoute("");
+    router.push(nextRoute);
+  };
+
+  const handleSignupSuccess = () => {
+    setAuthOpen(false);
+    setPendingRoute("");
+    clearAuthRedirect();
+    router.push("/customer/products");
+  };
+
   const handleProductClick = (productId) => {
-    router.push(`/customer/product/${productId}`);
+    const targetRoute = `/customer/product/${productId}`;
+    if (!hasBrowseAccess()) {
+      openAuthModal("login", targetRoute);
+      return;
+    }
+    router.push(targetRoute);
   };
 
   const handleCategoryChange = (category) => {
@@ -706,11 +752,12 @@ export default function ProductsPage() {
   };
 
   const toggleWishlist = async (productId) => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      router.push("/SignIn");
+    if (!hasFullCustomerAuth()) {
+      openAuthModal("login");
       return;
     }
+
+    const token = localStorage.getItem("token");
 
     const isSaved = wishlist.includes(productId);
     const method = isSaved ? "DELETE" : "POST";
@@ -754,6 +801,7 @@ export default function ProductsPage() {
         setPriceFilter={setPriceFilter}
         disableFilters={false}
         disableSearch={false}
+        onAuthTrigger={(mode) => openAuthModal(mode)}
       />
 
       <main className={styles.main}>
@@ -780,20 +828,6 @@ export default function ProductsPage() {
                   <ArrowRight size={18} />
                 </button>
               </div>
-              {/* <div className={styles.highlightGrid}>
-                {serviceHighlights.map((item) => {
-                  const Icon = item.icon;
-                  return (  
-                    <div key={item.label} className={styles.highlightCard}>
-                      <div className={styles.highlightIcon}>
-                        <Icon size={20} />
-                      </div>
-                      <p className={styles.highlightValue}>{item.value}</p>
-                      <p className={styles.highlightLabel}>{item.label}</p>
-                    </div>
-                  );
-                })}
-              </div> */}
             </div>
             <img
               src="/Boutique_image.png"
@@ -989,6 +1023,14 @@ export default function ProductsPage() {
           </div>
         </div>
       </footer>
+
+      <AuthModal
+        open={authOpen}
+        initialTab={authTab}
+        onClose={() => setAuthOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
+        onSignupSuccess={handleSignupSuccess}
+      />
     </div>
   );
 }

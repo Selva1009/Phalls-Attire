@@ -393,6 +393,7 @@
   min-width: 0;
 }
 
+
 .sectionTitle {
   margin: 0;
   font-size: clamp(2.2rem, 4vw, 3.2rem);
@@ -507,6 +508,7 @@
   color: #e91e63;
   transform: translateX(3px);
 }
+
 
 .metricsCard {
   align-self: flex-end;

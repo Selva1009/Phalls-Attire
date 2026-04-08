@@ -534,133 +534,155 @@ const CustomerProfile = () => {
             </header>
           )}
 
-          {activeSection === "account" && (
-            <section className="settings-profile-row">
-              <div className="settings-profile-card">
-                <div className="settings-profile-avatar">
-                  <span>
-                    {(customerUser.personName || "U")
-                      .split(" ")
-                      .map((chunk) => chunk[0])
-                      .join("")
-                      .slice(0, 2)
-                      .toUpperCase()}
-                  </span>
-                </div>
-                <div className="settings-profile-meta">
-                  <p className="settings-profile-label">Profile summary</p>
-                  <h2>{customerUser.personName || "Customer"}</h2>
-                  <div className="settings-profile-lines">
-                    <span>{customerUser.Email || "email@phalls.com"}</span>
-                    <span>{customerUser.contactNumber || "Phone not added"}</span>
-                  </div>
-                  <span className="settings-status-chip">
-                    {customerUser.status || "Active"}
-                  </span>
-                </div>
-                <div className="settings-profile-actions">
-                  <Button
-                    type="button"
-                    className="settings-primary"
-                    onClick={() => {
-                      if (isEditing) {
-                        setFormData(customerUser);
-                        setIsEditing(false);
-                      } else {
-                        setIsEditing(true);
-                      }
-                    }}
-                  >
-                    {isEditing ? "Cancel edit" : "Edit profile"}
-                  </Button>
-                </div>
-              </div>
-            </section>
-          )}
-
-
           <div className="settings-grid">
             {activeSection === "account" && (
-              <Card className="settings-card">
-                <CardContent>
-                  <div className="settings-card-head">
-                    <div>
-                      <p className="settings-section-label">Account details</p>
-                      <h3>Profile information</h3>
-                      <p>Keep your contact information up-to-date.</p>
+              <section className="settings-account-grid">
+                <div className="settings-identity-card">
+                  <div className="settings-identity-top">
+                    <div className="settings-profile-avatar">
+                      <span>
+                        {(customerUser.personName || "U")
+                          .split(" ")
+                          .map((chunk) => chunk[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="settings-identity-meta">
+                      <p className="settings-identity-label">Profile summary</p>
+                      <h2>{customerUser.personName || "Customer"}</h2>
+                      <div className="settings-identity-lines">
+                        <span>{customerUser.Email || "email@phalls.com"}</span>
+                        <span>{customerUser.contactNumber || "Phone not added"}</span>
+                      </div>
+                      <div className="settings-identity-chips">
+                        <span className="settings-status-chip">
+                          {customerUser.status || "Active"}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <form className="settings-form" onSubmit={handleSave}>
-                    <TextField
-                      label="Company name"
-                      name="companyName"
-                      value={formData.companyName}
-                      onChange={handleChange}
-                      fullWidth
-                      disabled={!isEditing}
-                      className="settings-input"
-                    />
-                    <TextField
-                      label="Contact person"
-                      name="personName"
-                      value={formData.personName}
-                      onChange={handleChange}
-                      fullWidth
-                      disabled={!isEditing}
-                      className="settings-input"
-                    />
-                    <TextField
-                      label="Email"
-                      name="Email"
-                      type="email"
-                      value={formData.Email}
-                      onChange={handleChange}
-                      fullWidth
-                      disabled={!isEditing}
-                      className="settings-input"
-                    />
-                    <TextField
-                      label="Phone number"
-                      name="contactNumber"
-                      value={formData.contactNumber}
-                      onChange={handleChange}
-                      fullWidth
-                      disabled={!isEditing}
-                      className="settings-input"
-                    />
-                    <TextField
-                      label="Status"
-                      name="status"
-                      value={formData.status}
-                      fullWidth
-                      disabled
-                      className="settings-input"
-                    />
-                    {isEditing ? (
-                      <div className="settings-actions">
-                        <Button
-                          type="button"
-                          className="settings-secondary"
-                          onClick={() => {
-                            setFormData(customerUser);
-                            setIsEditing(false);
-                          }}
-                          disabled={isLoading}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          type="submit"
-                          className="settings-primary"
-                          disabled={isLoading}
-                        >
-                          {isLoading ? "Saving..." : "Save changes"}
-                        </Button>
+                  <div className="settings-identity-actions">
+                    <Button
+                      type="button"
+                      className="settings-primary"
+                      onClick={() => {
+                        if (isEditing) {
+                          setFormData(customerUser);
+                          setIsEditing(false);
+                        } else {
+                          setIsEditing(true);
+                        }
+                      }}
+                    >
+                      {isEditing ? "Cancel edit" : "Edit profile"}
+                    </Button>
+                  </div>
+                  <p className="settings-identity-note">
+                    {isEditing
+                      ? "Editing enabled — remember to save your changes."
+                      : "Profile is locked. Click edit to update your details."}
+                  </p>
+                </div>
+
+                <Card
+                  className={`settings-card settings-edit-card ${
+                    isEditing ? "is-editing" : ""
+                  }`}
+                >
+                  <CardContent>
+                    <div className="settings-edit-head">
+                      <div>
+                        <p className="settings-section-label">Account details</p>
+                        <h3>Profile information</h3>
+                        <p>Keep your contact information up-to-date.</p>
                       </div>
-                    ) : null}
-                  </form>
-                </CardContent>
-              </Card>
+                      <span
+                        className={`settings-edit-chip ${
+                          isEditing ? "is-active" : ""
+                        }`}
+                      >
+                        {isEditing ? "Editing" : "Read-only"}
+                      </span>
+                    </div>
+                    {!isEditing && (
+                      <div className="settings-edit-hint">
+                        Switch to edit mode to update your details.
+                      </div>
+                    )}
+                    <form className="settings-form settings-form-grid" onSubmit={handleSave}>
+                      <TextField
+                        label="Company name"
+                        name="companyName"
+                        value={formData.companyName}
+                        onChange={handleChange}
+                        fullWidth
+                        disabled={!isEditing}
+                        className="settings-input settings-span-full"
+                      />
+                      <TextField
+                        label="Contact person"
+                        name="personName"
+                        value={formData.personName}
+                        onChange={handleChange}
+                        fullWidth
+                        disabled={!isEditing}
+                        className="settings-input"
+                      />
+                      <TextField
+                        label="Email"
+                        name="Email"
+                        type="email"
+                        value={formData.Email}
+                        onChange={handleChange}
+                        fullWidth
+                        disabled={!isEditing}
+                        className="settings-input"
+                      />
+                      <TextField
+                        label="Phone number"
+                        name="contactNumber"
+                        value={formData.contactNumber}
+                        onChange={handleChange}
+                        fullWidth
+                        disabled={!isEditing}
+                        className="settings-input"
+                      />
+                      <TextField
+                        label="Status"
+                        name="status"
+                        value={formData.status}
+                        fullWidth
+                        disabled
+                        className="settings-input settings-span-full"
+                      />
+                      {isEditing ? (
+                        <div className="settings-actions settings-span-full">
+                          <Button
+                            type="button"
+                            className="settings-secondary"
+                            onClick={() => {
+                              setFormData(customerUser);
+                              setIsEditing(false);
+                            }}
+                            disabled={isLoading}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="submit"
+                            className="settings-primary"
+                            disabled={isLoading}
+                          >
+                            {isLoading ? "Saving..." : "Save changes"}
+                          </Button>
+                        </div>
+                      ) : null}
+                    </form>
+                  </CardContent>
+                </Card>
+              </section>
             )}
 
             {activeSection === "addresses" && (

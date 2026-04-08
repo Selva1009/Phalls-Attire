@@ -74,8 +74,8 @@ export default function Footer() {
 
   return (
     <footer className="w-full bg-[#0f1117] text-[#e6e7ef]">
-      <div className="mx-auto grid w-full max-w-[1500px] grid-cols-1 gap-10 px-4 py-12 text-center sm:px-6 sm:text-left md:grid-cols-2 md:py-14 lg:grid-cols-12 lg:gap-12 lg:px-10 xl:px-16 2xl:px-24">
-        <div className="lg:col-span-5">
+      <div className="mx-auto grid w-full max-w-[1500px] grid-cols-1 gap-10 px-4 py-12 text-center sm:px-6 sm:text-left md:grid-cols-2 md:py-14 lg:grid-cols-4 lg:gap-8 lg:px-10 xl:grid-cols-12 xl:gap-12 xl:px-16 2xl:px-24">
+        <div className="xl:col-span-5">
           <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#161a24] via-[#11141c] to-[#0b0d12] p-6 shadow-[0_20px_50px_rgba(0,0,0,0.4)]">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#ffb3c7] text-[#3a0d1f]">
@@ -95,7 +95,7 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="lg:col-span-3 md:text-left">
+        <div className="xl:col-span-3 md:text-left">
           <h4 className="text-lg font-semibold text-white">Quick Links</h4>
           <ul className="mt-4 space-y-3 text-sm text-[#c8c9d6]">
             <li>
@@ -116,22 +116,22 @@ export default function Footer() {
           </ul>
         </div>
 
-        <div className="lg:col-span-2 md:text-left">
+        <div className="xl:col-span-2 text-left">
           <h4 className="text-lg font-semibold text-white">Support</h4>
-          <div className="mt-4 rounded-2xl border border-white/10 bg-[#151824] p-4 text-sm text-[#c8c9d6]">
-            <div className="flex items-center gap-2">
+          <div className="mt-4 space-y-2 text-sm text-[#c8c9d6]">
+            <div className="flex items-start gap-2">
               <Mail className="h-4 w-4 text-[#ffb3c7]" />
-              support@phalls.com
+              <span className="min-w-0 break-words">support@phalls.com</span>
             </div>
-            <div className="mt-2 flex items-center gap-2">
+            <div className="flex items-start gap-2">
               <PhoneCall className="h-4 w-4 text-[#ffb3c7]" />
-              +91 90000 00000
+              <span className="min-w-0 break-words">+91 90000 00000</span>
             </div>
-            <p className="mt-2 text-xs text-[#9b9db0]">9:00 AM – 9:00 PM IST</p>
+            <p className="text-xs text-[#9b9db0]">9:00 AM – 9:00 PM IST</p>
           </div>
         </div>
 
-        <div className="lg:col-span-2 md:text-left">
+        <div className="xl:col-span-2 md:text-left">
           <h4 className="text-lg font-semibold text-white">Connect</h4>
           <p className="mt-4 text-sm text-[#c8c9d6]">
             Follow our launch notes and buyer drops.

@@ -15,7 +15,7 @@ import {
 import { toast, ToastContainer } from "react-toastify";
 import Navbar from "../components/Navbar";
 import styles from "./orders-page.module.css";
-import NeedHelpModal from "../../components/NeedHelpModal";
+import NeedHelpModal from "../../Components/NeedHelpModal";
 
 const ACTIVE_STATUSES = ["pending", "processing", "approved", "shipped"];
 const HISTORY_STATUSES = [

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -13,8 +13,9 @@ import {
   KeyboardDoubleArrowLeft,
   KeyboardDoubleArrowRight,
 } from "@mui/icons-material";
+import { hasFullCustomerAuth } from "@/lib/customerSession";
 
-export default function CustomerLayout({ children }) {
+function CustomerLayoutInner({ children }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -23,16 +24,17 @@ export default function CustomerLayout({ children }) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const THEME_KEY = "customerTheme";
+  const isPublicRoute =
+    pathname === "/customer/products" || pathname?.startsWith("/customer/product/");
 
   useEffect(() => {
-    const storedCustomer = localStorage.getItem("customerUser");
-    const token = localStorage.getItem("token");
-    if (!storedCustomer || !token) {
+    const isAuthed = hasFullCustomerAuth();
+    if (!isAuthed && !isPublicRoute) {
       router.replace("/SignIn");
-    } else {
-      setIsVerified(true);
+      return;
     }
-  }, []);
+    setIsVerified(true);
+  }, [isPublicRoute, router]);
 
   useEffect(() => {
     const applyTheme = (mode) => {
@@ -121,6 +123,14 @@ export default function CustomerLayout({ children }) {
   };
 
   if (!isVerified) return null;
+
+  if (isPublicRoute) {
+    return (
+      <main style={{ minHeight: "100vh", padding: "96px 28px 64px 22px" }}>
+        {children}
+      </main>
+    );
+  }
 
   const W  = 252;
   const WC = 66;
@@ -362,6 +372,7 @@ export default function CustomerLayout({ children }) {
         }
         .sidebar-collapsed .csl-content { margin-left: ${WC}px; }
 
+
         /* mobile */
         .csl-mobile-bar {
           display: none;
@@ -484,5 +495,13 @@ export default function CustomerLayout({ children }) {
         <main className="csl-content">{children}</main>
       </div>
     </>
+  );
+}
+
+export default function CustomerLayout({ children }) {
+  return (
+    <Suspense fallback={null}>
+      <CustomerLayoutInner>{children}</CustomerLayoutInner>
+    </Suspense>
   );
 }
