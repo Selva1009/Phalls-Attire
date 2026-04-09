@@ -7,6 +7,8 @@ export default function Footer() {
   const pathname = usePathname();
   const isLanding =
     pathname === "/" ||
+    pathname === "/Home" ||
+    pathname === "/About" ||
     pathname === "/customer/products" ||
     pathname === "/LandingPage";
 

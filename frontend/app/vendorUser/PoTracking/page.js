@@ -627,13 +627,13 @@ const VendorPOAutomationPage = () => {
                         Remarks
                       </h3>
                     </div>
-                    <textarea
+                    {/* <textarea
                       value={ deliveryNotes }
                       readOnly
                       placeholder="Add any special delivery instructions..."
                       className="w-full px-3 py-2 border rounded-md text-sm bg-gray-100 cursor-not-allowed"
                       rows={ 3 }
-                    />
+                    /> */}
                   </div>
                 </div>
               </div>

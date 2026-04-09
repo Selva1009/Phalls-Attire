@@ -6,7 +6,6 @@ import "./profile.css";
 import "./SettingsPage.css";
 import "./favourite.css";
 import "./navbar.css";
-import "./signin.css";
 import ClientWrapper from "./ClinetWrapper";
 
 const manrope = Manrope({
@@ -47,3 +46,4 @@ export default function RootLayout({ children }) {
     </html>
   );
 }
+

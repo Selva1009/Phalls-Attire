@@ -45,7 +45,7 @@ export default function DashboardLayout({ id, children }) {
     const storedVendorUser = localStorage.getItem("vendorUser");
     if (!storedVendorUser) {
       setError("Vendor user not found. Please sign in again.");
-      router.replace("/SignIn");
+      router.replace("/Home");
       return;
     }
 
@@ -54,7 +54,7 @@ export default function DashboardLayout({ id, children }) {
       setVendorUser(parsed);
     } catch (error) {
       setError("Invalid vendor user data. Please sign in again.");
-      router.replace("/SignIn");
+      router.replace("/Home");
       return;
     } finally {
       setLoading(false);
@@ -62,24 +62,24 @@ export default function DashboardLayout({ id, children }) {
   }, [router]);
 
   useEffect(() => {
+    let isMounted = true;
     const fetchNotifications = async () => {
       if (!id) return;
+      if (typeof navigator !== "undefined" && !navigator.onLine) return;
 
       try {
         const response = await fetch(
-          `${API_BASE_URL}/api/notification/${id}`
+          `${API_BASE_URL}/api/notification/${id}`,
+          { cache: "no-store" }
         );
         if (!response.ok) {
-          throw new Error("Failed to fetch notifications");
-        }
-        const data = await response.json();
-
-        if (!data.notifications) {
-          console.error("Backend returned no notifications");
+          if (isMounted) setNotifications([]);
           return;
         }
+        const data = await response.json();
+        const list = Array.isArray(data.notifications) ? data.notifications : [];
 
-        const formattedNotifications = data.notifications
+        const formattedNotifications = list
           .map((notif) => ({
             ...notif,
             read: notif.status === "read",
@@ -96,19 +96,24 @@ export default function DashboardLayout({ id, children }) {
           }))
           .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
+        if (!isMounted) return;
         setNotifications((prev) =>
           JSON.stringify(prev) === JSON.stringify(formattedNotifications)
             ? prev
             : formattedNotifications
         );
-      } catch (err) {
-        console.error("Error fetching notifications:", err);
+      } catch {
+        if (!isMounted) return;
+        setNotifications([]);
       }
     };
 
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 10000);
-    return () => clearInterval(interval);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [id]);
 
   const filteredNotifications = notifications.filter((notif) => {
@@ -571,3 +576,4 @@ export default function DashboardLayout({ id, children }) {
     </div>
   );
 }
+

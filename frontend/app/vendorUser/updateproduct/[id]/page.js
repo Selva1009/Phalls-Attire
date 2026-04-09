@@ -11,8 +11,16 @@ export default function UpdateProduct() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const currentPage = searchParams.get("page") || 1;
-
-  const [vendorId, setVendorId] = useState(null);
+  const returnToParam = searchParams.get("returnTo");
+  const safeReturnTo = useMemo(() => {
+    if (!returnToParam) {
+      return `/vendorUser/productdetails?page=${encodeURIComponent(currentPage)}`;
+    }
+    if (returnToParam.startsWith("/vendorUser/")) {
+      return returnToParam;
+    }
+    return `/vendorUser/productdetails?page=${encodeURIComponent(currentPage)}`;
+  }, [returnToParam, currentPage]);
   const [formData, setFormData] = useState({
     productName: "",
     brand: "",
@@ -28,14 +36,6 @@ export default function UpdateProduct() {
   const [selectedImage, setSelectedImage] = useState(null);
   const [updating, setUpdating] = useState(false);
   const imageCacheBuster = useMemo(() => Date.now(), []);
-
-  // ✅ Load vendorId from localStorage
-  useEffect(() => {
-    const storedVendorId = localStorage.getItem("userId");
-    if (storedVendorId) {
-      setVendorId(storedVendorId);
-    }
-  }, []);
 
   // ✅ Fetch product using correct `id`
   useEffect(() => {
@@ -123,13 +123,7 @@ export default function UpdateProduct() {
 
       // ✅ Redirect after update
       setTimeout(() => {
-        if (vendorId) {
-          router.push(
-            `/vendorUser/productdetails?page=${encodeURIComponent(
-              currentPage
-            )}`
-          );
-        }
+        router.push(safeReturnTo);
       }, 1500);
     } catch (error) {
       Swal.fire("Error", error.message, "error");

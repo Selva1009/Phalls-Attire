@@ -1,4 +1,4 @@
-﻿
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -373,7 +373,7 @@ export default function TransactionsPage() {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (response.status === 401) {
-          router.push("/SignIn");
+          router.push("/Home");
           return;
         }
         const data = await response.json().catch(() => ({}));
@@ -416,7 +416,7 @@ export default function TransactionsPage() {
         );
 
         if (response.status === 401) {
-          router.push("/SignIn");
+          router.push("/Home");
           return;
         }
 
@@ -577,7 +577,7 @@ export default function TransactionsPage() {
 
   return (
     <>
-      <Navbar disableFilters disableSearch />
+      <Navbar disableFilters disableSearch hideCategories />
       <div className={styles.pageShell}>
         <header className={styles.pageHeader}>
           <div>
@@ -891,5 +891,6 @@ export default function TransactionsPage() {
     </>
   );
 }
+
 
 

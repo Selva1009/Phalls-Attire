@@ -294,7 +294,7 @@ export default function AuthModal({
         </button>
 
         <div className={styles.header}>
-          <span className={styles.eyebrow}>Phalls Attire</span>
+          <img src="/Logo.png" alt="Phalls Attire" className={styles.logo} />
           <h2 className={styles.title}>Continue with your account</h2>
           <p className={styles.subtitle}>
             Sign in to view premium edits or create a new account in seconds.
@@ -333,7 +333,7 @@ export default function AuthModal({
                 className={`${styles.switchButton} ${usePhoneLogin ? styles.switchActive : ""}`}
                 onClick={() => setUsePhoneLogin(true)}
               >
-                Phone OTP
+                Phone Number Login
               </button>
             </div>
 
@@ -404,36 +404,38 @@ export default function AuthModal({
                     type="tel"
                     inputMode="numeric"
                     className={styles.input}
-                    placeholder="Enter registered phone number"
+                    placeholder="Enter phone number"
                     value={phoneNumber}
                     onChange={(event) => setPhoneNumber(event.target.value)}
                   />
                 </div>
 
-                <div className={styles.field}>
-                  <label className={styles.label} htmlFor="auth-otp">
-                    OTP
-                  </label>
-                  <input
-                    id="auth-otp"
-                    type="text"
-                    inputMode="numeric"
-                    className={styles.input}
-                    placeholder="Enter OTP"
-                    value={otp}
-                    onChange={(event) => setOtp(event.target.value)}
-                  />
-                </div>
-
-                <div className={styles.otpActions}>
+                <div className={styles.otpRow}>
+                  <div className={styles.field}>
+                    <label className={styles.label} htmlFor="auth-otp">
+                      OTP
+                    </label>
+                    <input
+                      id="auth-otp"
+                      type="text"
+                      inputMode="numeric"
+                      className={styles.input}
+                      placeholder="Enter OTP"
+                      value={otp}
+                      onChange={(event) => setOtp(event.target.value)}
+                    />
+                  </div>
                   <button
                     type="button"
-                    className={styles.secondaryButton}
+                    className={`${styles.secondaryButton} ${styles.sendOtpButton}`}
                     onClick={handleSendOtp}
                     disabled={sendingOtp}
                   >
                     {sendingOtp ? "Sending OTP..." : "Send OTP"}
                   </button>
+                </div>
+
+                <div className={styles.otpActions}>
                   <button type="submit" className={styles.primaryButton} disabled={loading}>
                     {loading ? "Logging in..." : "Verify & Login"}
                   </button>

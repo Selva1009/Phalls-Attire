@@ -8,8 +8,41 @@ body {
   padding: 0;
 }
 
+:root.theme-dark body {
+  background: var(--dark-bg);
+  color: var(--dark-text);
+}
+
 :root {
   --page-scale: 1;
+  --pink-mid: #e91e63;
+  --pink-deep: #c2185b;
+  --pink-rose: rgba(233, 30, 99, 0.4);
+  --pink-pale: rgba(255, 236, 244, 0.9);
+  --pink-blush: rgba(255, 220, 234, 0.85);
+  --white: #ffffff;
+  --ink: #2f1d28;
+  --ink-muted: #6f5161;
+  --ink-light: #9a7186;
+  --line: rgba(233, 30, 99, 0.16);
+  --dark-bg: #0b0f17;
+  --dark-surface: #121826;
+  --dark-surface-2: #161d2c;
+  --dark-border: #2a3143;
+  --dark-text: #f1f5f9;
+  --dark-muted: #9aa4b2;
+}
+
+:root.theme-dark {
+  color-scheme: dark;
+  --white: #111827;
+  --ink: #f8fafc;
+  --ink-muted: #b6c0ce;
+  --ink-light: #9aa4b2;
+  --line: rgba(255, 255, 255, 0.08);
+  --pink-pale: rgba(233, 30, 99, 0.16);
+  --pink-blush: rgba(233, 30, 99, 0.24);
+  --pink-rose: rgba(233, 30, 99, 0.45);
 }
 
 @media (max-width: 1200px) {
@@ -82,6 +115,33 @@ body {
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
   }
+
+  :root.theme-dark {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 13%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 12%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 336 82% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 16% 20%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 220 16% 18%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 336 82% 52%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 16% 26%;
+    --input: 220 16% 26%;
+    --ring: 336 82% 52%;
+    --chart-1: 336 82% 52%;
+    --chart-2: 280 65% 60%;
+    --chart-3: 197 37% 35%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+  }
 }
 
 @layer base {
@@ -147,33 +207,100 @@ h6 {
 }
 
 .swal-soft-popup {
-  border-radius: 26px !important;
-  padding: 24px !important;
+  border-radius: 20px !important;
+  padding: 26px 30px !important;
+  border: 1px solid rgba(236, 209, 223, 0.9) !important;
+  background: linear-gradient(180deg, #ffffff 0%, #fff7fb 100%) !important;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.18) !important;
 }
 
 .swal-soft-title {
   font-family: var(--font-playfair), serif !important;
-  color: #3a2230 !important;
-  font-size: 26px !important;
+  color: #3a1c2c !important;
+  font-size: 22px !important;
+  letter-spacing: 0.02em !important;
+  font-weight: 700 !important;
 }
 
 .swal-soft-text {
-  color: #7a5a6a !important;
+  color: #6f5161 !important;
   font-size: 14px !important;
+  line-height: 1.6 !important;
 }
 
 .swal-soft-confirm {
   border-radius: 999px !important;
   padding: 10px 26px !important;
-  background: #e91e63 !important;
+  background: linear-gradient(135deg, #e91e63, #ff7aa8) !important;
   color: #fff !important;
   font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  box-shadow: 0 14px 28px rgba(233, 30, 99, 0.24) !important;
 }
 
 .swal-soft-cancel {
   border-radius: 999px !important;
   padding: 10px 22px !important;
-  background: #f3e1ea !important;
-  color: #7a4b63 !important;
+  background: #fff4f8 !important;
+  color: #8f5a73 !important;
   font-weight: 700 !important;
+  border: 1px solid rgba(240, 208, 223, 0.9) !important;
+}
+
+.swal-soft-popup .swal2-icon {
+  width: 54px !important;
+  height: 54px !important;
+  margin: 6px auto 12px !important;
+  border-width: 2px !important;
+  background: #ffffff !important;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12) !important;
+}
+
+.swal-soft-popup .swal2-icon.swal2-error {
+  border-color: rgba(233, 30, 99, 0.5) !important;
+  color: transparent !important;
+  background:
+    /* url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><path d='M32 54C18 43 10 33 10 22c0-7.5 5.6-13 13-13 4.6 0 8.6 2.4 11 6.2C36.4 11.4 40.4 9 45 9c7.4 0 13 5.5 13 13 0 11-8 21-26 32z' fill='none' stroke='%23e91e63' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'/><path d='M32 18l-4 8 6 6-6 6 6 8' fill='none' stroke='%23e91e63' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'/></svg>") center/34px 34px no-repeat, */
+    #fff1f4 !important;
+}
+
+.swal-soft-popup .swal2-icon.swal2-error .swal2-x-mark-line {
+  display: none !important;
+}
+
+.swal-soft-popup .swal2-icon.swal2-success {
+  border-color: rgba(34, 197, 94, 0.45) !important;
+  color: #16a34a !important;
+  background: #f0fdf4 !important;
+}
+
+.swal-soft-popup .swal2-icon.swal2-warning {
+  border-color: rgba(245, 158, 11, 0.45) !important;
+  color: #d97706 !important;
+  background: #fffbeb !important;
+}
+
+:root.theme-dark .swal-soft-popup {
+  border-color: rgba(42, 49, 67, 0.9) !important;
+  background: linear-gradient(180deg, #111827 0%, #0f172a 100%) !important;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45) !important;
+}
+
+:root.theme-dark .swal-soft-title {
+  color: #f8fafc !important;
+}
+
+:root.theme-dark .swal-soft-text {
+  color: #cbd5f5 !important;
+}
+
+:root.theme-dark .swal-soft-cancel {
+  background: #1f2937 !important;
+  color: #e5e7eb !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+:root.theme-dark .swal-soft-popup .swal2-icon {
+  background: #111827 !important;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.35) !important;
 }

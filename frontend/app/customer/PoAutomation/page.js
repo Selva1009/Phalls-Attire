@@ -319,7 +319,7 @@ export default function OrdersPage({ variant = "orders" }) {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (response.status === 401) {
-          router.push("/SignIn");
+          router.push("/Home");
           return;
         }
         const data = await response.json().catch(() => ({}));
@@ -518,7 +518,7 @@ export default function OrdersPage({ variant = "orders" }) {
   if (isHistory) {
     return (
       <>
-        <Navbar disableFilters disableSearch />
+        <Navbar disableFilters disableSearch hideCategories />
         <div className={styles.historyPage}>
           <main className={styles.historyMain}>
             <header className={styles.historyHeader}>
@@ -807,7 +807,7 @@ export default function OrdersPage({ variant = "orders" }) {
 
   return (
     <>
-      <Navbar disableFilters disableSearch />
+      <Navbar disableFilters disableSearch hideCategories />
       <div className={styles.pageShell}>
         <main className={styles.main}>
           <section className={styles.hero}>
@@ -1024,4 +1024,5 @@ export default function OrdersPage({ variant = "orders" }) {
     </>
   );
 }
+
 

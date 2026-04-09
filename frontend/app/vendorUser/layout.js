@@ -16,7 +16,7 @@ export default function VendorDashboardLayout({ children }) {
 
     if (!storedVendorUser) {
       console.warn("Vendor user not found in localStorage. Redirecting to SignIn...");
-      router.replace("/SignIn");
+      router.replace("/Home");
       return;
     }
 
@@ -31,3 +31,4 @@ export default function VendorDashboardLayout({ children }) {
 
   return <DashboardLayout id={vendorUserId}>{children}</DashboardLayout>;
 }
+

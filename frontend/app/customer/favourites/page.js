@@ -33,7 +33,7 @@ export default function FavouritePage() {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (response.status === 401) {
-          router.push("/SignIn");
+          router.push("/Home");
           return;
         }
         const data = await response.json();
@@ -103,7 +103,7 @@ export default function FavouritePage() {
     const remove = async () => {
       const token = localStorage.getItem("token");
       if (!token) {
-        router.push("/SignIn");
+        router.push("/Home");
         return;
       }
       try {
@@ -115,7 +115,7 @@ export default function FavouritePage() {
           }
         );
         if (response.status === 401) {
-          router.push("/SignIn");
+          router.push("/Home");
           return;
         }
         if (!response.ok) throw new Error("Failed to remove favourite");
@@ -147,7 +147,7 @@ export default function FavouritePage() {
         body: JSON.stringify({ customerId, productId: product.id, quantity: 1 }),
       });
       if (response.status === 401) {
-        router.push("/SignIn");
+        router.push("/Home");
         return;
       }
       const data = await response.json();
@@ -173,7 +173,7 @@ export default function FavouritePage() {
   /* ── Render ── */
   return (
     <>
-      <Navbar disableFilters disableSearch />
+      <Navbar disableFilters disableSearch hideCategories />
       <ToastContainer theme="dark" />
 
       <div className="nb-page">
@@ -292,7 +292,7 @@ export default function FavouritePage() {
                 <button
                   type="button"
                   className="nb-shop-btn"
-                  onClick={() => router.push("/customer/products#explore")}
+                  onClick={() => router.push("/Home#explore")}
                 >
                   Continue shopping
                 </button>
@@ -318,3 +318,4 @@ export default function FavouritePage() {
     </>
   );
 }
+

@@ -1,13 +1,14 @@
 "use client";
 import { API_BASE_URL } from "@/lib/api";
-import { useEffect, useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { FaSearch } from "react-icons/fa";
 import { Pencil, Trash2 } from "lucide-react";
 
 export default function EcommercePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [vendorUserId, setVendorUserId] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,8 +16,11 @@ export default function EcommercePage() {
   const [search, setSearch] = useState("");
   const [activeProductId, setActiveProductId] = useState(null);
   const itemsPerPage = 20;
-  const [currentPage, setCurrentPage] = useState(1);
+  const initialPage = Number(searchParams.get("page") || 1);
+  const [currentPage, setCurrentPage] = useState(initialPage);
   const imageCacheBuster = useMemo(() => Date.now(), []);
+  const restoreRef = useRef(false);
+  const scrollKey = "vendorReturnScroll:productcards";
 
   // ✅ Fixed: Correct key from localStorage
   useEffect(() => {
@@ -60,6 +64,29 @@ export default function EcommercePage() {
   }, [vendorUserId]);
 
   useEffect(() => {
+    const pageParam = Number(searchParams.get("page") || 1);
+    if (!Number.isNaN(pageParam)) {
+      setCurrentPage(pageParam);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (loading || restoreRef.current) return;
+    if (typeof window === "undefined") return;
+    const saved = sessionStorage.getItem(scrollKey);
+    if (!saved) return;
+    restoreRef.current = true;
+    sessionStorage.removeItem(scrollKey);
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: Number(saved) || 0, behavior: "auto" });
+    });
+  }, [loading]);
+
+  const searchRef = useRef(search);
+
+  useEffect(() => {
+    if (searchRef.current === search) return;
+    searchRef.current = search;
     setCurrentPage(1);
   }, [search]);
 
@@ -247,7 +274,15 @@ export default function EcommercePage() {
   }, [filteredProducts, currentPage]);
 
   const handleEdit = (productId) => {
-    router.push(`/vendorUser/updateproduct/${productId}`);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(scrollKey, String(window.scrollY || 0));
+    }
+    const returnTo = `/vendorUser/productcards?page=${currentPage}`;
+    router.push(
+      `/vendorUser/updateproduct/${productId}?page=${currentPage}&returnTo=${encodeURIComponent(
+        returnTo
+      )}`
+    );
   };
 
   const handleDelete = async (productId) => {

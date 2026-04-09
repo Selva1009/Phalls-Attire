@@ -82,7 +82,7 @@ const CartPage = () => {
         headers: getAuthHeader(),
       });
       if (response.status === 401) {
-        router.push("/SignIn");
+        router.push("/Home");
         return;
       }
       const data = await response.json();
@@ -132,7 +132,7 @@ const CartPage = () => {
         body: JSON.stringify({ cartId, action }),
       });
       if (response.status === 401) {
-        router.push("/SignIn");
+        router.push("/Home");
         return;
       }
 
@@ -165,7 +165,7 @@ const CartPage = () => {
         headers: getAuthHeader(),
       });
       if (response.status === 401) {
-        router.push("/SignIn");
+        router.push("/Home");
         return;
       }
       if (response.ok) {
@@ -186,7 +186,7 @@ const CartPage = () => {
         headers: getAuthHeader(),
       });
       if (response.status === 401) {
-        router.push("/SignIn");
+        router.push("/Home");
         return;
       }
       const data = await response.json();
@@ -242,7 +242,7 @@ const CartPage = () => {
         body: JSON.stringify(payload),
       });
       if (response.status === 401) {
-        router.push("/SignIn");
+        router.push("/Home");
         return;
       }
       const data = await response.json();
@@ -415,7 +415,7 @@ const CartPage = () => {
 
   return (
     <>
-      <Navbar disableFilters disableSearch />
+      <Navbar disableFilters disableSearch hideCategories />
       <div className="cart-page">
         <ToastContainer position="bottom-right" autoClose={3000} />
 
@@ -445,7 +445,7 @@ const CartPage = () => {
                 </div>
                 <h3>Your cart feels light</h3>
                 <p>Explore premium styles and start building your collection.</p>
-                <a href="/customer/products" className="cart-primary-button cart-link-button">
+                <a href="/Home" className="cart-primary-button cart-link-button">
                   Explore Marketplace
                 </a>
               </div>
@@ -787,3 +787,4 @@ const CartPage = () => {
 };
 
 export default CartPage;
+

@@ -6,80 +6,121 @@
   align-items: center;
   justify-content: center;
   padding: 18px;
-  background: rgba(17, 9, 14, 0.4);
-  backdrop-filter: blur(10px);
+  background:
+    radial-gradient(circle at 18% 12%, rgba(255, 198, 220, 0.35), transparent 45%),
+    radial-gradient(circle at 82% 82%, rgba(255, 180, 210, 0.25), transparent 50%),
+    rgba(64, 20, 38, 0.35);
+  backdrop-filter: blur(12px);
 }
 
 .card {
   position: relative;
-  width: min(520px, 100%);
-  border-radius: 32px;
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.85));
-  box-shadow: 0 30px 90px rgba(64, 22, 40, 0.25);
-  padding: 28px;
+  width: min(560px, 100%);
+  height: min(680px, calc(100vh - 48px));
+  max-height: calc(100vh - 48px);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 220, 232, 0.9);
+  background: #fffefe;
+  box-shadow: 0 30px 80px rgba(92, 40, 62, 0.2);
+  padding: 28px 28px 24px;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .card::before {
   content: "";
   position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.9), transparent 36%),
-    radial-gradient(circle at 80% 0%, rgba(246, 200, 220, 0.55), transparent 36%);
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: linear-gradient(90deg, #e91e63, #ff8fab);
+  pointer-events: none;
+}
+
+.card::after {
+  content: "";
+  position: absolute;
+  bottom: -120px;
+  right: -140px;
+  width: 260px;
+  height: 260px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 143, 171, 0.22), transparent 70%);
   pointer-events: none;
 }
 
 .closeButton {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  top: 14px;
+  right: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: 999px;
-  border: 1px solid rgba(233, 30, 99, 0.18);
-  background: #fff;
-  color: #c2185b;
+  border: 1px solid rgba(255, 214, 229, 0.9);
+  background: #fff6fa;
+  color: #b21d54;
   cursor: pointer;
   z-index: 2;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.closeButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12);
 }
 
 .header {
   position: relative;
   z-index: 1;
-  text-align: center;
+  text-align: left;
+  flex-shrink: 0;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 214, 229, 0.8);
+}
+
+.logo {
+  display: block;
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  margin: 0 auto 12px;
+  filter: drop-shadow(0 8px 18px rgba(92, 40, 62, 0.2));
 }
 
 .eyebrow {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 16px;
-  border-radius: 999px;
-  border: 1px solid rgba(233, 30, 99, 0.2);
-  background: rgba(255, 255, 255, 0.8);
+  padding: 6px 12px;
+  width: fit-content;
+  margin: 0 auto 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 214, 229, 0.9);
+  background: #fff3f8;
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.28em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: #c2185b;
+  color: #a21d51;
 }
 
 .title {
-  margin: 16px 0 6px;
+  margin: 14px 0 6px;
   font-family: var(--font-playfair), serif;
   font-size: 26px;
-  color: #3a2230;
+  line-height: 1.2;
+  color: #3a1c2c;
 }
 
 .subtitle {
   margin: 0;
-  font-size: 13px;
-  color: #7a5a6a;
+  font-size: 13.5px;
+  color: #7a4b62;
 }
 
 .tabs {
@@ -89,58 +130,72 @@
   gap: 10px;
   margin-top: 18px;
   padding: 6px;
-  border-radius: 999px;
-  background: rgba(255, 240, 245, 0.7);
+  border-radius: 14px;
+  background: #fff5fa;
+  border: 1px solid rgba(255, 214, 229, 0.9);
+  flex-shrink: 0;
 }
 
 .tabButton {
   flex: 1;
   border: 0;
-  border-radius: 999px;
-  padding: 10px 16px;
+  border-radius: 10px;
+  padding: 10px 14px;
   background: transparent;
-  font-size: 12px;
-  font-weight: 700;
-  color: #9a6b85;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8f5a73;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .tabActive {
-  background: #fff;
-  color: #c2185b;
-  box-shadow: 0 12px 22px rgba(140, 32, 80, 0.12);
+  background: #ffffff;
+  color: #b21d54;
+  box-shadow: 0 10px 22px rgba(178, 29, 84, 0.15);
 }
 
 .panel {
   position: relative;
   z-index: 1;
-  margin-top: 18px;
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 214, 229, 0.85);
+  background: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  flex: 1;
+  overflow-y: auto;
 }
 
 .switchRow {
   display: flex;
   gap: 10px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .switchButton {
   flex: 1;
-  border-radius: 999px;
-  border: 1px solid rgba(233, 30, 99, 0.18);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 214, 229, 0.9);
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.7);
-  font-size: 11px;
-  font-weight: 700;
-  color: #8a5a73;
+  background: #fff6fa;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8f5a73;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .switchActive {
-  background: linear-gradient(135deg, rgba(233, 30, 99, 0.16), rgba(247, 200, 222, 0.6));
-  color: #c2185b;
-  border-color: rgba(233, 30, 99, 0.35);
+  background: linear-gradient(135deg, #e91e63, #ff7aa8);
+  color: #ffffff;
+  border-color: rgba(233, 30, 99, 0.6);
+  box-shadow: 0 10px 22px rgba(233, 30, 99, 0.2);
 }
 
 .form {
@@ -155,20 +210,27 @@
 
 .label {
   font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.24em;
+  font-weight: 800;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #9a6b85;
+  color: #8f5a73;
 }
 
 .input {
   border-radius: 14px;
-  border: 1px solid rgba(230, 193, 210, 0.8);
-  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 214, 229, 0.9);
+  background: #ffffff;
   padding: 12px 14px;
-  font-size: 13px;
-  color: #3a2230;
+  font-size: 14px;
+  color: #3a1c2c;
   outline: none;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.input:focus {
+  border-color: rgba(233, 30, 99, 0.45);
+  box-shadow: 0 0 0 3px rgba(233, 30, 99, 0.12);
 }
 
 .passwordWrap {
@@ -182,7 +244,7 @@
   transform: translateY(-50%);
   border: 0;
   background: transparent;
-  color: #9a6b85;
+  color: #c26d8f;
   cursor: pointer;
 }
 
@@ -190,22 +252,32 @@
   width: 100%;
   border: 0;
   border-radius: 999px;
-  padding: 12px 18px;
-  background: linear-gradient(135deg, #e91e63, #f38ab0);
+  padding: 13px 18px;
+  background: linear-gradient(135deg, #e91e63, #ff7aa8);
   color: #fff;
-  font-weight: 700;
-  box-shadow: 0 16px 34px rgba(233, 30, 99, 0.28);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  box-shadow: 0 16px 34px rgba(233, 30, 99, 0.25);
   cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.primaryButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 22px 46px rgba(233, 30, 99, 0.36);
 }
 
 .secondaryButton {
   flex: 1;
   border-radius: 999px;
-  border: 1px solid rgba(233, 30, 99, 0.2);
+  border: 1px solid rgba(255, 214, 229, 0.9);
   padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.86);
-  color: #a25777;
-  font-weight: 700;
+  background: #ffffff;
+  color: #a05a78;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   cursor: pointer;
 }
 
@@ -215,18 +287,41 @@
   flex-wrap: wrap;
 }
 
+.otpRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.otpRow .input {
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.sendOtpButton {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  height: 40px;
+  padding: 0 16px;
+  font-size: 10px;
+  align-self: end;
+}
+
 .errorText {
   font-size: 11px;
-  color: #c03962;
+  color: #dc2626;
 }
 
 @media (max-width: 640px) {
   .card {
-    padding: 22px;
+    padding: 24px;
+    height: calc(100vh - 32px);
+    max-height: calc(100vh - 32px);
   }
 
   .title {
-    font-size: 22px;
+    font-size: 24px;
   }
 
   .switchRow {
@@ -235,5 +330,17 @@
 
   .otpActions {
     flex-direction: column;
+  }
+
+  .otpRow {
+    grid-template-columns: 1fr;
+  }
+
+  .sendOtpButton {
+    width: 100%;
+  }
+
+  .header {
+    text-align: center;
   }
 }

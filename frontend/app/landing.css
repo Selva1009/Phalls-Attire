@@ -37,6 +37,53 @@
   padding: 14px 0;
 }
 
+.landing-category-strip {
+  border-top: 1px solid rgba(238, 200, 218, 0.65);
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.landing-category-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.landing-category-row::-webkit-scrollbar {
+  height: 2px;
+}
+
+.landing-category-row::-webkit-scrollbar-thumb {
+  background: rgba(233, 30, 99, 0.4);
+  border-radius: 999px;
+}
+
+.landing-category-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(233, 30, 99, 0.15);
+  background: #fff;
+  color: #8a5f74;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.landing-category-pill:hover {
+  color: #c2185b;
+  border-color: rgba(233, 30, 99, 0.4);
+  background: rgba(255, 236, 244, 0.9);
+}
+
 .landing-brand {
   display: flex;
   align-items: center;
@@ -56,9 +103,9 @@
   width: 52px;
   height: 52px;
   padding: 2px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, #f7bfd6, #e91e63);
-  box-shadow: 0 14px 32px rgba(233, 30, 99, 0.18);
+  /* border-radius: 18px; */
+  /* background: linear-gradient(135deg, #f7bfd6, #e91e63); */
+  /* box-shadow: 0 14px 32px rgba(233, 30, 99, 0.18); */
 }
 
 .landing-logo-core {
@@ -69,8 +116,8 @@
 }
 
 .landing-logo-image {
-  width: 30px;
-  height: 30px;
+  width: 100px;
+  height: 100px;
   object-fit: contain;
 }
 
@@ -928,4 +975,46 @@
   .payment-layout {
     grid-template-columns: 1fr;
   }
+}
+
+:root.theme-dark .landing-page {
+  background:
+    radial-gradient(circle at 10% 12%, rgba(233, 30, 99, 0.18), transparent 26%),
+    radial-gradient(circle at 90% 14%, rgba(233, 30, 99, 0.12), transparent 22%),
+    linear-gradient(180deg, #0b0f17 0%, #0f1624 55%, #0b0f17 100%);
+  color: #e2e8f0;
+}
+
+:root.theme-dark .landing-navbar,
+:root.theme-dark .landing-category-strip {
+  background: rgba(15, 23, 42, 0.9);
+  border-color: rgba(233, 30, 99, 0.2);
+}
+
+:root.theme-dark .landing-hero-title,
+:root.theme-dark .landing-section-title,
+:root.theme-dark .landing-hero-showcase-title {
+  color: #f8fafc;
+}
+
+:root.theme-dark .landing-hero-text,
+:root.theme-dark .landing-section-text,
+:root.theme-dark .landing-section-lead {
+  color: #cbd5f5;
+}
+
+:root.theme-dark .landing-page [class*="card"],
+:root.theme-dark .landing-page [class*="panel"],
+:root.theme-dark .landing-page [class*="pill"],
+:root.theme-dark .landing-page [class*="box"] {
+  background: #121826 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
+:root.theme-dark .landing-page [class*="badge"],
+:root.theme-dark .landing-page [class*="chip"] {
+  background: rgba(233, 30, 99, 0.16) !important;
+  color: #f8fafc !important;
+  border-color: rgba(233, 30, 99, 0.3) !important;
 }

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { yupResolver } from "@hookform/resolvers/yup";
-import ImageSlider from "../SignIn/ImageSlider";
+import ImageSlider from "../Home/ImageSlider";
 import * as yup from "yup";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -148,7 +148,7 @@ export default function ForgotPassword() {
             ) }
 
             <Link
-              href="/SignIn"
+              href="/Home"
               className="flex items-center text-gray-600 mt-4 2xl:mt-6 hover:text-gray-800 text-sm 2xl:text-base"
             >
               <ArrowLeft className="w-5 h-5 mr-2" />
@@ -160,3 +160,4 @@ export default function ForgotPassword() {
     </div>
   );
 }
+

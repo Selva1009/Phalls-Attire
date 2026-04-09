@@ -1,8 +1,8 @@
 "use client";
 
 import { API_BASE_URL } from "@/lib/api";
-import { useEffect, useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FaSearch, FaEdit } from "react-icons/fa";
 import { Trash2, Loader2, Edit } from "lucide-react";
 import { ChevronRight, ChevronLeft } from 'lucide-react';
@@ -13,14 +13,18 @@ import { Button } from '@/components/ui/button';
 
 export default function ProductDetails() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [products, setProducts] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
+  const initialPage = Number(searchParams.get("page") || 1);
+  const [currentPage, setCurrentPage] = useState(initialPage);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const itemsPerPage = 5;
   const imageCacheBuster = useMemo(() => Date.now(), []);
+  const restoreRef = useRef(false);
+  const scrollKey = "vendorReturnScroll:productdetails";
 
   const vendorUserId = typeof window !== "undefined" ? localStorage.getItem("vendorUserId") : null;
 
@@ -65,6 +69,25 @@ export default function ProductDetails() {
       isMounted = false;
     };
   }, [vendorUserId]);
+
+  useEffect(() => {
+    const pageParam = Number(searchParams.get("page") || 1);
+    if (!Number.isNaN(pageParam)) {
+      setCurrentPage(pageParam);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (loading || restoreRef.current) return;
+    if (typeof window === "undefined") return;
+    const saved = sessionStorage.getItem(scrollKey);
+    if (!saved) return;
+    restoreRef.current = true;
+    sessionStorage.removeItem(scrollKey);
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: Number(saved) || 0, behavior: "auto" });
+    });
+  }, [loading]);
 
   const handleDelete = async (productId) => {
     try {
@@ -125,13 +148,28 @@ export default function ProductDetails() {
   };
 
   const handleEdit = (productId) => {
-    router.push(`/vendorUser/updateproduct/${productId}`);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(scrollKey, String(window.scrollY || 0));
+    }
+    const returnTo = `/vendorUser/productdetails?page=${currentPage}`;
+    router.push(
+      `/vendorUser/updateproduct/${productId}?page=${currentPage}&returnTo=${encodeURIComponent(
+        returnTo
+      )}`
+    );
   };
 
 
+  const searchRef = useRef(searchQuery);
+
+  useEffect(() => {
+    if (searchRef.current === searchQuery) return;
+    searchRef.current = searchQuery;
+    setCurrentPage(1);
+  }, [searchQuery]);
+
   const filteredProducts = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    setCurrentPage(1);
     return products.filter((product) => {
       return (
         product?.productName?.toLowerCase().includes(query) ||

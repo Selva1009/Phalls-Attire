@@ -1,9 +1,9 @@
 "use client";
 
 import { API_BASE_URL } from "@/lib/api";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Heart, Star } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { ArrowRight, Heart, Star, X } from "lucide-react";
 import Navbar from "../components/Navbar";
 import AuthModal from "../components/AuthModal";
 import {
@@ -64,6 +64,29 @@ const curatedCategories = [
   },
 ];
 
+const categorySlug = (value) =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/[’']/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+const categorySlugMap = curatedCategories.reduce((acc, category) => {
+  acc[categorySlug(category.name)] = category.name;
+  return acc;
+}, {});
+
+const resolveCategoryParam = (value) => {
+  if (!value) return "";
+  const trimmed = String(value).trim();
+  const directMatch = curatedCategories.find(
+    (category) => normalizeText(category.name) === normalizeText(trimmed)
+  );
+  if (directMatch) return directMatch.name;
+  const slug = categorySlug(trimmed);
+  return categorySlugMap[slug] || trimmed;
+};
+
 const testimonials = [
   {
     name: "Aanya S.",
@@ -85,97 +108,6 @@ const testimonials = [
   },
 ];
 
-const fallbackProducts = [
-  {
-    id: "fallback-top-1",
-    productName: "Rose Everyday Top",
-    brand: "Phalls Attair",
-    seller: "Phalls Attair",
-    description: "Soft daily-wear top with a polished feminine silhouette.",
-    category: "Women's Tops",
-    price: 1299,
-    productImage: "",
-    localImage: "/CordSet1 (3).jpeg",
-  },
-  {
-    id: "fallback-suit-1",
-    productName: "Festive Churidar Set",
-    brand: "Phalls Attair",
-    seller: "Phalls Attair",
-    description: "Elegant churidar suit set for festive and occasion dressing.",
-    category: "Exquisite Churidar Suits",
-    price: 2499,
-    productImage: "",
-    localImage: "/CordSet1 (10).jpeg",
-  },
-  {
-    id: "fallback-coord-1",
-    productName: "Blush Co-Ord Edit",
-    brand: "Phalls Attair",
-    seller: "Phalls Attair",
-    description: "Comfortable co-ord set made for quick styling.",
-    category: "Premium Co-Ord Sets",
-    price: 1899,
-    productImage: "",
-    localImage: "/CordSet02.jpeg",
-  },
-  {
-    id: "fallback-gown-1",
-    productName: "Evening Designer Gown",
-    brand: "Phalls Attair",
-    seller: "Phalls Attair",
-    description: "Statement gown for premium evening occasions.",
-    category: "Designer Gowns",
-    price: 3599,
-    productImage: "",
-    localImage: "/CordSet1 (20).jpeg",
-  },
-  {
-    id: "fallback-kurta-1",
-    productName: "Kurta Pant Dupatta Classic",
-    brand: "Phalls Attair",
-    seller: "Phalls Attair",
-    description: "Graceful ethnic set with kurta, pant, and dupatta.",
-    category: "Kurta Pant Dupatta Sets",
-    price: 2199,
-    productImage: "",
-    localImage: "/CordSet1 (24).jpeg",
-  },
-  {
-    id: "fallback-night-1",
-    productName: "Cotton Nightwear Set",
-    brand: "Phalls Attair",
-    seller: "Phalls Attair",
-    description: "Breathable cotton nightwear made for comfort.",
-    category: "Pure Cotton Nightwear",
-    price: 999,
-    productImage: "",
-    localImage: "/CordSet1 (29).jpeg",
-  },
-  {
-    id: "fallback-saree-1",
-    productName: "Signature Designer Saree",
-    brand: "Phalls Attair",
-    seller: "Phalls Attair",
-    description: "Elegant saree crafted for premium celebrations.",
-    category: "Designer Sarees",
-    price: 2899,
-    productImage: "",
-    localImage: "/CordSet1 (30).jpeg",
-  },
-  {
-    id: "fallback-legging-1",
-    productName: "Signature Stretch Leggings",
-    brand: "Phalls Attair",
-    seller: "Phalls Attair",
-    description: "Everyday leggings with a flexible flattering fit.",
-    category: "Signature Leggings",
-    price: 699,
-    productImage: "",
-    localImage: "/CordSet1 (32).jpeg",
-  },
-];
-
 // const serviceHighlights = [
 //   { label: "Curated drops", value: "48h", icon: Sparkles },
 //   { label: "Express dispatch", value: "2 Day", icon: Truck },
@@ -184,6 +116,27 @@ const fallbackProducts = [
 
 const formatPrice = (value) =>
   `Rs. ${Number(value || 0).toLocaleString("en-IN")}`;
+
+const buildImageUrl = (product, cacheKey = "") => {
+  const imageName =
+    product?.productImage ||
+    product?.image_name ||
+    product?.product_image ||
+    product?.image;
+  if (!imageName) {
+    const isFallback =
+      typeof product?.id === "string" && product.id.startsWith("fallback-");
+    return isFallback ? product?.localImage || "/CordSet1 (21).jpeg" : "/placeholder-product.png";
+  }
+  if (/^https?:\/\//i.test(imageName)) {
+    return imageName;
+  }
+  const cleaned = String(imageName)
+    .replace(/^\/?uploads\//i, "")
+    .replace(/^\/+/, "");
+  const suffix = cacheKey ? `?v=${cacheKey}` : "";
+  return `${API_BASE_URL}/uploads/${cleaned}${suffix}`;
+};
 
 const normalizeText = (value) =>
   String(value || "")
@@ -444,7 +397,20 @@ const matchesCategory = (product, category) => {
   return keywords.some((keyword) => productDescription.includes(normalizeText(keyword)));
 };
 
-function ProductCard({ product, onClick, onToggleWishlist, isWishlisted, imageCacheBuster }) {
+function ProductCard({
+  product,
+  onClick,
+  onToggleWishlist,
+  isWishlisted,
+  imageCacheBuster,
+  onQuickView,
+  canHover,
+}) {
+  const handleHoverStart = () => {
+    return;
+  };
+
+  const handleHoverEnd = () => {};
   const stockStatus = product.stock_status || product.stockStatus || "";
   const stockClass =
     stockStatus === "In Stock"
@@ -457,13 +423,17 @@ function ProductCard({ product, onClick, onToggleWishlist, isWishlisted, imageCa
 
   return (
     <article className={styles.productCard}>
-      <div className={styles.productMedia} onClick={() => onClick(product.id)}>
+      <div
+        className={styles.productMedia}
+        onClick={() => {
+          handleHoverEnd();
+          onClick(product.id);
+        }}
+        onMouseEnter={handleHoverStart}
+        onMouseLeave={handleHoverEnd}
+      >
         <img
-          src={
-            product.productImage
-              ? `${API_BASE_URL}/uploads/${product.productImage}?v=${imageCacheBuster}`
-              : product.localImage || "/CordSet1 (21).jpeg"
-          }
+          src={buildImageUrl(product, `${imageCacheBuster}-${product.id || ""}`)}
           alt={product.productName}
           className={styles.productImage}
         />
@@ -525,11 +495,68 @@ export default function ProductsPage() {
   const [authOpen, setAuthOpen] = useState(false);
   const [authTab, setAuthTab] = useState("login");
   const [pendingRoute, setPendingRoute] = useState("");
+  const [quickViewProduct, setQuickViewProduct] = useState(null);
+  const [quickViewOpen, setQuickViewOpen] = useState(false);
+  const [quickViewSource, setQuickViewSource] = useState("hover");
+  const [canHover, setCanHover] = useState(false);
   const imageCacheBuster = useMemo(() => Date.now(), []);
 
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const exploreRef = useRef(null);
+  const categoriesRef = useRef(null);
+  const scrollToAnchor = useCallback((hash) => {
+    if (typeof window === "undefined") return;
+    if (!hash) return;
+    const targetId = hash.replace("#", "");
+    if (!targetId) return;
+    const el =
+      targetId === "categories"
+        ? categoriesRef.current || document.getElementById(targetId)
+        : document.getElementById(targetId);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleCategoryNav = (event) => {
+      const detail = event.detail || {};
+      const category = detail.category || "";
+      const hash = detail.hash || (category ? "explore" : "categories");
+      setCategoryFilter(category);
+      setCurrentPage(1);
+      const nextUrl = category
+        ? `/Home?category=${categorySlug(category)}#${hash}`
+        : `/Home#${hash}`;
+      window.history.replaceState({}, "", nextUrl);
+      requestAnimationFrame(() => scrollToAnchor(`#${hash}`));
+    };
+
+    window.addEventListener("category-nav", handleCategoryNav);
+    return () => window.removeEventListener("category-nav", handleCategoryNav);
+  }, [scrollToAnchor]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!isMounted || !wishlistLoaded) return;
+    const handleHashScroll = () => {
+      scrollToAnchor(window.location.hash);
+    };
+
+    requestAnimationFrame(() => handleHashScroll());
+
+    window.addEventListener("hashchange", handleHashScroll);
+    return () => window.removeEventListener("hashchange", handleHashScroll);
+  }, [isMounted, wishlistLoaded]);
+
+  useEffect(() => {
+    if (pathname === "/customer/products") {
+      router.replace("/Home");
+    }
+  }, [pathname, router]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -558,7 +585,7 @@ export default function ProductsPage() {
           );
         }
       } catch (error) {
-        console.error("Failed to load favourites:", error);
+        setWishlist([]);
       } finally {
         setWishlistLoaded(true);
       }
@@ -568,9 +595,14 @@ export default function ProductsPage() {
   }, []);
 
   useEffect(() => {
-    const categoryFromURL = searchParams.get("category") || "";
+    const categoryFromURL = resolveCategoryParam(searchParams.get("category") || "");
     setCategoryFilter(categoryFromURL);
     setCurrentPage(1);
+    if (categoryFromURL) {
+      requestAnimationFrame(() => {
+        exploreRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
   }, [searchParams]);
 
   useEffect(() => {
@@ -581,7 +613,7 @@ export default function ProductsPage() {
     if (categoryFilter) {
       setCategoryFilter("");
       if (typeof window !== "undefined") {
-        window.history.replaceState({}, "", "/customer/products");
+        window.history.replaceState({}, "", "/Home");
       }
     }
 
@@ -591,9 +623,46 @@ export default function ProductsPage() {
   }, [searchQuery]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!isMounted || !wishlistLoaded) return;
+    if (window.location.hash === "#categories") {
+      requestAnimationFrame(() => scrollToAnchor("#categories"));
+    }
+  }, [searchParams, isMounted, wishlistLoaded]);
+
+  useEffect(() => {
     if (!isMounted) return;
     window.dispatchEvent(new Event("wishlistUpdated"));
   }, [wishlist, isMounted]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const updateHover = () => setCanHover(mediaQuery.matches);
+    updateHover();
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", updateHover);
+      return () => mediaQuery.removeEventListener("change", updateHover);
+    }
+    mediaQuery.addListener(updateHover);
+    return () => mediaQuery.removeListener(updateHover);
+  }, []);
+
+  const closeQuickView = () => {
+    setQuickViewOpen(false);
+    setQuickViewSource("hover");
+  };
+
+  useEffect(() => {
+    if (!quickViewOpen) return;
+    const handleKey = (event) => {
+      if (event.key === "Escape") {
+        closeQuickView();
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [quickViewOpen]);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -604,13 +673,12 @@ export default function ProductsPage() {
         typeof window !== "undefined"
           ? sessionStorage.getItem("customerProductsCache")
           : null;
-
+      let cachedList = null;
       if (cachedProducts) {
         try {
           const parsedProducts = JSON.parse(cachedProducts);
           if (Array.isArray(parsedProducts)) {
-            setProducts(parsedProducts);
-            setLoading(false);
+            cachedList = parsedProducts;
           }
         } catch {
           sessionStorage.removeItem("customerProductsCache");
@@ -619,7 +687,8 @@ export default function ProductsPage() {
 
       try {
         const response = await fetch(
-          `${API_BASE_URL}/api/auth/products/get-products/all`
+          `${API_BASE_URL}/api/auth/products/get-products/all`,
+          { cache: "no-store" }
         );
 
         if (!response.ok) {
@@ -637,8 +706,13 @@ export default function ProductsPage() {
           sessionStorage.setItem("customerProductsCache", JSON.stringify(data.products));
         }
       } catch (fetchError) {
-        setProducts(fallbackProducts);
-        setError("");
+        if (cachedList) {
+          setProducts(cachedList);
+          setError("");
+        } else {
+          setProducts([]);
+          setError("Unable to load products right now.");
+        }
       } finally {
         setLoading(false);
       }
@@ -714,7 +788,7 @@ export default function ProductsPage() {
       router.push("/vendorUser");
       return;
     }
-    const nextRoute = pendingRoute || "/customer/products";
+    const nextRoute = pendingRoute || "/Home";
     setPendingRoute("");
     router.push(nextRoute);
   };
@@ -723,13 +797,13 @@ export default function ProductsPage() {
     setAuthOpen(false);
     setPendingRoute("");
     clearAuthRedirect();
-    router.push("/customer/products");
+    router.push("/Home");
   };
 
   const handleProductClick = (productId) => {
     const targetRoute = `/customer/product/${productId}`;
     if (!hasBrowseAccess()) {
-      openAuthModal("login", targetRoute);
+      openAuthModal("signup", targetRoute);
       return;
     }
     router.push(targetRoute);
@@ -741,8 +815,8 @@ export default function ProductsPage() {
 
     if (typeof window !== "undefined") {
       const nextURL = category
-        ? `/customer/products?category=${encodeURIComponent(category)}`
-        : "/customer/products";
+        ? `/Home?category=${categorySlug(category)}`
+        : "/Home";
       window.history.replaceState({}, "", nextURL);
     }
 
@@ -753,7 +827,7 @@ export default function ProductsPage() {
 
   const toggleWishlist = async (productId) => {
     if (!hasFullCustomerAuth()) {
-      openAuthModal("login");
+      openAuthModal("signup");
       return;
     }
 
@@ -776,7 +850,7 @@ export default function ProductsPage() {
       });
 
       if (response.status === 401) {
-        router.push("/SignIn");
+        router.push("/Home");
         return;
       }
 
@@ -792,6 +866,12 @@ export default function ProductsPage() {
     } catch (error) {
       console.error(error);
     }
+  };
+
+  const openQuickView = (product, source = "hover") => {
+    setQuickViewProduct(product);
+    setQuickViewSource(source);
+    setQuickViewOpen(true);
   };
 
   return (
@@ -827,6 +907,13 @@ export default function ProductsPage() {
                   Explore Now
                   <ArrowRight size={18} />
                 </button>
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  onClick={() => router.push("/About")}
+                >
+                  About
+                </button>
               </div>
             </div>
             <img
@@ -837,7 +924,7 @@ export default function ProductsPage() {
           </div>
         </section>
 
-        <section id="categories" className={styles.section}>
+        <section id="categories" ref={categoriesRef} className={styles.section}>
           <div className={styles.sectionHeader}>
             <div>
               <span className={styles.eyebrow}>Curated Categories</span>
@@ -899,6 +986,8 @@ export default function ProductsPage() {
                       onToggleWishlist={toggleWishlist}
                       isWishlisted={wishlist.includes(product.id)}
                       imageCacheBuster={imageCacheBuster}
+                      onQuickView={openQuickView}
+                      canHover={canHover}
                     />
                   ))
                 ) : (
@@ -992,9 +1081,9 @@ export default function ProductsPage() {
             <div>
               <p className={styles.footerHeading}>Navigate</p>
               <div className={styles.footerList}>
-                <a href="/customer/products">Home</a>
-                <a href="/customer/products#explore">Explore</a>
-                <a href="/customer/products#categories">Categories</a>
+                <a href="/Home">Home</a>
+                <a href="/Home#explore">Explore</a>
+                <a href="/Home#categories">Categories</a>
                 <a href="/customer/profile">Profile</a>
               </div>
             </div>
@@ -1031,6 +1120,60 @@ export default function ProductsPage() {
         onLoginSuccess={handleLoginSuccess}
         onSignupSuccess={handleSignupSuccess}
       />
+
+      {quickViewOpen && quickViewProduct && (
+        <div
+          className={styles.quickViewOverlay}
+          onClick={closeQuickView}
+        >
+          <div
+            className={styles.quickViewCard}
+            onClick={(event) => event.stopPropagation()}
+            onMouseLeave={() => {
+              if (quickViewSource === "hover") {
+                closeQuickView();
+              }
+            }}
+          >
+            <button
+              type="button"
+              className={styles.quickViewClose}
+              onClick={closeQuickView}
+              aria-label="Close quick view"
+            >
+              <X size={18} />
+            </button>
+            <div className={styles.quickViewMedia}>
+              <img
+                src={buildImageUrl(quickViewProduct, `${imageCacheBuster}-${quickViewProduct.id || ""}`)}
+                alt={quickViewProduct.productName}
+                className={styles.quickViewImage}
+              />
+            </div>
+            <div className={styles.quickViewDetails}>
+              <span className={styles.quickViewLabel}>Quick View</span>
+              <h3 className={styles.quickViewTitle}>{quickViewProduct.productName}</h3>
+              <p className={styles.quickViewBrand}>
+                {quickViewProduct.brand || quickViewProduct.seller || "Signature Collection"}
+              </p>
+              <p className={styles.quickViewPrice}>{formatPrice(quickViewProduct.price)}</p>
+              <p className={styles.quickViewDesc}>
+                {quickViewProduct.description || "Premium edit crafted to elevate your everyday wardrobe."}
+              </p>
+              <div className={styles.quickViewActions}>
+                <button
+                  type="button"
+                  className={styles.quickViewPrimary}
+                  onClick={() => handleProductClick(quickViewProduct.id)}
+                >
+                  View Details
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

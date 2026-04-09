@@ -1,7 +1,7 @@
 "use client";
 
 import { API_BASE_URL } from "@/lib/api";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Navbar from "../../components/Navbar";
 import AuthModal from "../../components/AuthModal";
@@ -15,11 +15,33 @@ import {
   setAuthRedirect,
 } from "@/lib/customerSession";
 
+const buildImageUrl = (product, cacheKey = "") => {
+  const imageName =
+    product?.productImage ||
+    product?.image_name ||
+    product?.product_image ||
+    product?.image;
+  if (!imageName) {
+    const isFallback =
+      typeof product?.id === "string" && product.id.startsWith("fallback-");
+    return isFallback ? product?.localImage || "/CordSet1 (21).jpeg" : "/placeholder-product.png";
+  }
+  if (/^https?:\/\//i.test(imageName)) {
+    return imageName;
+  }
+  const cleaned = String(imageName)
+    .replace(/^\/?uploads\//i, "")
+    .replace(/^\/+/, "");
+  const suffix = cacheKey ? `?v=${cacheKey}` : "";
+  return `${API_BASE_URL}/uploads/${cleaned}${suffix}`;
+};
+
 const ProductDetail = () => {
   const { id } = useParams();
   const router = useRouter();
   const [product, setProduct] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
+  const [categorySuggestions, setCategorySuggestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [customerId, setCustomerId] = useState(null);
@@ -28,7 +50,13 @@ const ProductDetail = () => {
   const [authTab, setAuthTab] = useState("login");
   const [isAuthed, setIsAuthed] = useState(() => hasBrowseAccess());
   const [pendingRoute, setPendingRoute] = useState("");
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const suggestTrackRef = useRef(null);
   const imageCacheBuster = useMemo(() => Date.now(), []);
+
+  const normalizeCategory = (value) => String(value || "").trim().toLowerCase();
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -46,7 +74,7 @@ const ProductDetail = () => {
     const authed = hasBrowseAccess();
     setIsAuthed(authed);
     if (!authed) {
-      setAuthTab("login");
+      setAuthTab("signup");
       setAuthOpen(true);
       setAuthRedirect(`/customer/product/${id}`);
     }
@@ -54,45 +82,170 @@ const ProductDetail = () => {
 
   useEffect(() => {
     if (!id) return;
+    let isActive = true;
     const fetchProduct = async () => {
+      setLoading(true);
+      setError("");
+
+      const findCachedProduct = () => {
+        if (typeof window === "undefined") return null;
+        const cachedProducts = sessionStorage.getItem("customerProductsCache");
+        if (!cachedProducts) return null;
+        try {
+          const parsed = JSON.parse(cachedProducts);
+          if (!Array.isArray(parsed)) return null;
+          return parsed.find((item) => String(item.id) === String(id)) || null;
+        } catch {
+          return null;
+        }
+      };
+
       try {
         const res = await fetch(
-          `${API_BASE_URL}/api/auth/products/get-product/${id}`
+          `${API_BASE_URL}/api/auth/products/get-product/${id}`,
+          { cache: "no-store" }
         );
-        if (!res.ok) throw new Error("Failed to fetch product");
+        if (!res.ok) {
+          throw new Error("Failed to fetch product");
+        }
         const data = await res.json();
-        setProduct(data.product);
+        if (isActive) {
+          setProduct(data.product);
+        }
       } catch (err) {
-        setError("Error fetching product details.");
+        const cachedMatch = findCachedProduct();
+        if (isActive) {
+          if (cachedMatch) {
+            setProduct(cachedMatch);
+          } else {
+            setError("Error fetching product details.");
+          }
+        }
       } finally {
-        setLoading(false);
+        if (isActive) {
+          setLoading(false);
+        }
       }
     };
     fetchProduct();
+    return () => {
+      isActive = false;
+    };
   }, [id]);
 
   useEffect(() => {
     if (!product?.id) return;
+    let isActive = true;
     const fetchSuggestions = async () => {
+      const buildSuggestions = (items) => {
+        const filtered = items.filter(
+          (item) => String(item.id) !== String(product.id)
+        );
+        const productCategory = normalizeCategory(product.category);
+        const matches = filtered.filter(
+          (item) => productCategory && normalizeCategory(item.category) === productCategory
+        );
+        return {
+          matches,
+          shortlist: (matches.length ? matches : filtered).slice(0, 20),
+        };
+      };
+
       try {
-        const res = await fetch(`${API_BASE_URL}/api/auth/products/get-products/all`);
-        if (!res.ok) return;
+        const res = await fetch(`${API_BASE_URL}/api/auth/products/get-products/all`, {
+          cache: "no-store",
+        });
+        if (!res.ok) throw new Error("Failed to load products");
         const data = await res.json();
         const products = Array.isArray(data.products) ? data.products : [];
-        const filtered = products.filter(
-          (item) => Number(item.id) !== Number(product.id)
-        );
-        const matches = filtered.filter(
-          (item) => item.category && item.category === product.category
-        );
-        const shortlist = (matches.length ? matches : filtered).slice(0, 20);
+        if (!isActive) return;
+        const { matches, shortlist } = buildSuggestions(products);
+        setCategorySuggestions(matches);
         setSuggestions(shortlist);
       } catch (err) {
-        setSuggestions([]);
+        if (!isActive) return;
+        const cachedProducts = (() => {
+          if (typeof window === "undefined") return [];
+          const cached = sessionStorage.getItem("customerProductsCache");
+          if (!cached) return [];
+          try {
+            const parsed = JSON.parse(cached);
+            return Array.isArray(parsed) ? parsed : [];
+          } catch {
+            return [];
+          }
+        })();
+        const { matches, shortlist } = buildSuggestions(cachedProducts);
+        setCategorySuggestions(matches);
+        setSuggestions(shortlist);
       }
     };
     fetchSuggestions();
+    return () => {
+      isActive = false;
+    };
   }, [product]);
+
+  const imageSlides = useMemo(() => {
+    if (!product) return [];
+    const map = new Map();
+    map.set(String(product.id), product);
+    categorySuggestions.forEach((item) => {
+      const key = String(item.id);
+      if (map.has(key)) return;
+      map.set(key, item);
+    });
+    return Array.from(map.values());
+  }, [categorySuggestions, product]);
+
+  const displayedProduct = imageSlides[activeImageIndex] || product;
+
+  useEffect(() => {
+    setActiveImageIndex(0);
+  }, [product?.id]);
+
+  useEffect(() => {
+    if (!imageSlides.length) return;
+    setActiveImageIndex((prev) => Math.min(prev, imageSlides.length - 1));
+  }, [imageSlides.length]);
+
+  const handleImageSlide = (direction) => {
+    if (imageSlides.length <= 1) return;
+    setActiveImageIndex((prev) => {
+      const next = direction === "left" ? prev - 1 : prev + 1;
+      const total = imageSlides.length;
+      return (next + total) % total;
+    });
+  };
+
+  useEffect(() => {
+    const track = suggestTrackRef.current;
+    if (!track) return;
+
+    const updateScrollState = () => {
+      const { scrollLeft, scrollWidth, clientWidth } = track;
+      setCanScrollLeft(scrollLeft > 4);
+      setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 4);
+    };
+
+    updateScrollState();
+    track.addEventListener("scroll", updateScrollState, { passive: true });
+    window.addEventListener("resize", updateScrollState);
+    return () => {
+      track.removeEventListener("scroll", updateScrollState);
+      window.removeEventListener("resize", updateScrollState);
+    };
+  }, [suggestions]);
+
+  const handleTrackScroll = (direction) => {
+    const track = suggestTrackRef.current;
+    if (!track) return;
+    const scrollAmount = Math.max(220, Math.floor(track.clientWidth * 0.6));
+    track.scrollBy({
+      left: direction === "left" ? -scrollAmount : scrollAmount,
+      behavior: "smooth",
+    });
+  };
 
   const syncCustomerFromStorage = () => {
     if (typeof window === "undefined") return;
@@ -137,16 +290,18 @@ const ProductDetail = () => {
     setAuthOpen(false);
     setPendingRoute("");
     clearAuthRedirect();
-    router.push("/customer/products");
+    router.push("/Home");
   };
 
   const handleAddToCart = async () => {
+    const targetProduct = displayedProduct || product;
+    if (!targetProduct) return;
     if (!hasFullCustomerAuth() || !customerId) {
-      openAuthModal("login");
+      openAuthModal("signup");
       return;
     }
     try {
-      const cartItem = { customerId, productId: product.id, quantity: 1 };
+      const cartItem = { customerId, productId: targetProduct.id, quantity: 1 };
       const response = await fetch(`${API_BASE_URL}/api/cart/add`, {
         method: "POST",
         headers: {
@@ -156,12 +311,12 @@ const ProductDetail = () => {
         body: JSON.stringify(cartItem),
       });
       if (response.status === 401) {
-        openAuthModal("login");
+        openAuthModal("signup");
         return;
       }
       const data = await response.json();
       if (data.success) {
-        const newCart = [...cart, { ...product, quantity: 1 }];
+        const newCart = [...cart, { ...targetProduct, quantity: 1 }];
         setCart(newCart);
         localStorage.setItem(`cart_${customerId}`, JSON.stringify(newCart));
         window.dispatchEvent(new Event("storage"));
@@ -211,16 +366,16 @@ const ProductDetail = () => {
               <button
                 type="button"
                 className={styles.primaryButton}
-                onClick={() => openAuthModal("login")}
+                onClick={() => openAuthModal("signup")}
               >
-                Login to Continue
+                Create Account
               </button>
               <button
                 type="button"
                 className={styles.secondaryButton}
-                onClick={() => openAuthModal("signup")}
+                onClick={() => openAuthModal("login")}
               >
-                Create Account
+                Login
               </button>
             </div>
           </div>
@@ -255,13 +410,36 @@ const ProductDetail = () => {
           {/* Left: image */}
           <div className={styles.imageSide}>
             <div className={styles.imageWrap}>
+              {imageSlides.length > 1 && (
+                <div className={styles.imageNav}>
+                  <button
+                    type="button"
+                    className={styles.imageNavButton}
+                    onClick={() => handleImageSlide("left")}
+                    aria-label="Previous image"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M15 6l-6 6 6 6" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.imageNavButton}
+                    onClick={() => handleImageSlide("right")}
+                    aria-label="Next image"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M9 6l6 6-6 6" />
+                    </svg>
+                  </button>
+                </div>
+              )}
               <img
-                src={
-                  product.productImage
-                    ? `${API_BASE_URL}/uploads/${product.productImage}?v=${imageCacheBuster}`
-                    : "/CordSet1 (21).jpeg"
-                }
-                alt={product.productName}
+                src={buildImageUrl(
+                  displayedProduct,
+                  `${imageCacheBuster}-${displayedProduct?.id || ""}`
+                )}
+                alt={displayedProduct?.productName || product.productName}
                 className={styles.heroImage}
               />
               <div className={styles.imageFade} />
@@ -271,6 +449,7 @@ const ProductDetail = () => {
             {/* <div className={styles.floatingTag}> */}
               {/* <span>Signature Edit</span> */}
             {/* </div> */}
+
           </div>
 
           {/* Right: info */}
@@ -278,33 +457,33 @@ const ProductDetail = () => {
             <div className={styles.infoInner}>
 
               <p className={styles.overline}>
-                {product.brand || "Phalls"} &nbsp;/&nbsp; {product.seller || "Premium Partner"}
+                {displayedProduct?.brand || "Phalls"} &nbsp;/&nbsp; {displayedProduct?.seller || "Premium Partner"}
               </p>
 
-              <h1 className={styles.title}>{product.productName}</h1>
+              <h1 className={styles.title}>{displayedProduct?.productName || product.productName}</h1>
 
               <div className={styles.dividerLine} />
 
               <p className={styles.price}>
-                ₹{Number(product.price || 0).toLocaleString("en-IN")}
+                ₹{Number(displayedProduct?.price || 0).toLocaleString("en-IN")}
               </p>
 
               <p className={styles.description}>
-                {product.description || "A premium dress edit crafted for the modern woman."}
+                {displayedProduct?.description || "A premium dress edit crafted for the modern woman."}
               </p>
 
               <div className={styles.metaList}>
                 <div className={styles.metaItem}>
                   <span className={styles.metaKey}>Category</span>
-                  <span className={styles.metaVal}>{product.category || "Curated"}</span>
+                  <span className={styles.metaVal}>{displayedProduct?.category || "Curated"}</span>
                 </div>
                 <div className={styles.metaItem}>
                   <span className={styles.metaKey}>Brand</span>
-                  <span className={styles.metaVal}>{product.brand || "Phalls"}</span>
+                  <span className={styles.metaVal}>{displayedProduct?.brand || "Phalls"}</span>
                 </div>
                 <div className={styles.metaItem}>
                   <span className={styles.metaKey}>Seller</span>
-                  <span className={styles.metaVal}>{product.seller || "Premium Partner"}</span>
+                  <span className={styles.metaVal}>{displayedProduct?.seller || "Premium Partner"}</span>
                 </div>
               </div>
 
@@ -329,18 +508,44 @@ const ProductDetail = () => {
                 <p className={styles.suggestOverline}>Styled for you</p>
                 <h2 className={styles.suggestTitle}>You may also love</h2>
               </div>
-              <button
-                className={styles.viewAllBtn}
-                onClick={() => router.push("/customer/products#explore")}
-              >
-                View all
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M5 12h14M12 5l7 7-7 7" />
-                </svg>
-              </button>
+              <div className={styles.suggestActions}>
+                <div className={styles.suggestControls}>
+                  <button
+                    type="button"
+                    className={styles.suggestArrow}
+                    onClick={() => handleTrackScroll("left")}
+                    disabled={!canScrollLeft}
+                    aria-label="Scroll left"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M15 6l-6 6 6 6" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.suggestArrow}
+                    onClick={() => handleTrackScroll("right")}
+                    disabled={!canScrollRight}
+                    aria-label="Scroll right"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M9 6l6 6-6 6" />
+                    </svg>
+                  </button>
+                </div>
+                <button
+                  className={styles.viewAllBtn}
+                  onClick={() => router.push("/Home#explore")}
+                >
+                  View all
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M5 12h14M12 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
-            <div className={styles.suggestTrack}>
+            <div className={styles.suggestTrack} ref={suggestTrackRef}>
               {suggestions.map((item, i) => (
                 <article
                   key={item.id}
@@ -348,7 +553,7 @@ const ProductDetail = () => {
                   style={{ "--i": i }}
                   onClick={() => {
                     if (!hasBrowseAccess()) {
-                      openAuthModal("login", `/customer/product/${item.id}`);
+                      openAuthModal("signup", `/customer/product/${item.id}`);
                       return;
                     }
                     router.push(`/customer/product/${item.id}`);
@@ -358,7 +563,7 @@ const ProductDetail = () => {
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       if (!hasBrowseAccess()) {
-                        openAuthModal("login", `/customer/product/${item.id}`);
+                        openAuthModal("signup", `/customer/product/${item.id}`);
                         return;
                       }
                       router.push(`/customer/product/${item.id}`);
@@ -367,11 +572,10 @@ const ProductDetail = () => {
                 >
                   <div className={styles.suggestImgBox}>
                     <img
-                      src={
-                        item.productImage
-                          ? `${API_BASE_URL}/uploads/${item.productImage}?v=${imageCacheBuster}`
-                          : item.localImage || "/CordSet1 (24).jpeg"
-                      }
+                      src={buildImageUrl(
+                        item,
+                        `${imageCacheBuster}-${item.id || ""}`
+                      )}
                       alt={item.productName}
                       className={styles.suggestImg}
                     />

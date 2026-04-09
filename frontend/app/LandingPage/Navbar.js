@@ -107,7 +107,7 @@ export default function Navbar() {
               >
                 SIGN UP
               </button>
-              <Link href="/SignIn">
+              <Link href="/Home">
                 <button className="rounded-full px-5 py-2.5 text-xs font-semibold tracking-[0.2em] text-white transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.02] md:text-sm magenta-gradient premium-shadow">
                   SIGN IN
                 </button>
@@ -190,7 +190,7 @@ export default function Navbar() {
                   >
                     Sign Up
                   </button>
-                  <Link href="/SignIn" className="block w-full">
+                  <Link href="/Home" className="block w-full">
                     <button
                       className="w-full rounded-2xl px-4 py-3 text-sm font-medium text-white transition duration-300 hover:scale-[1.01] magenta-gradient premium-shadow"
                       onClick={() => setSidebarOpen(false)}
@@ -338,3 +338,4 @@ export default function Navbar() {
     </>
   );
 }
+

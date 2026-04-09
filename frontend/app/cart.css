@@ -142,16 +142,20 @@
 }
 
 .cart-item-media {
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 3 / 4;
   border-radius: 20px;
   overflow: hidden;
-  background: linear-gradient(180deg, #fff1f7, #fffafc);
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .cart-item-image {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  background: #ffffff;
 }
 
 .cart-item-main {
@@ -554,16 +558,21 @@
 
 .cart-item-media {
   width: 140px;
-  height: 170px;
+  aspect-ratio: 3 / 4;
+  height: auto;
   border-radius: 18px;
   overflow: hidden;
-  background: #fff0f6;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .cart-item-image {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  background: #ffffff;
 }
 
 .cart-item-main {
@@ -645,6 +654,10 @@
   .cart-item-media {
     width: 100%;
     height: 220px;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .cart-item-summary {
@@ -686,7 +699,7 @@
 
 .cart-item-media {
   border-radius: 16px;
-  background: #f7f7f7;
+  background: #ffffff;
 }
 
 .cart-item-price {
@@ -1042,4 +1055,47 @@
     flex-direction: column;
     align-items: flex-start;
   }
+}
+
+:root.theme-dark .cart-page,
+:root.theme-dark .cart-empty-state-page,
+:root.theme-dark .cart-loading-shell {
+  background:
+    radial-gradient(circle at top left, rgba(233, 30, 99, 0.12), transparent 32%),
+    linear-gradient(180deg, #0b0f17 0%, #0f1624 55%, #0b0f17 100%);
+  color: #e2e8f0;
+}
+
+:root.theme-dark .cart-hero,
+:root.theme-dark .cart-items-panel,
+:root.theme-dark .cart-summary-panel,
+:root.theme-dark .cart-item-card,
+:root.theme-dark .cart-empty-card {
+  background: #121826;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+}
+
+:root.theme-dark .cart-section-label {
+  color: #f5a1c0;
+}
+
+:root.theme-dark .cart-hero h1,
+:root.theme-dark .cart-summary-panel h2,
+:root.theme-dark .cart-empty-card h2,
+:root.theme-dark .cart-empty-card h3,
+:root.theme-dark .cart-item-header h3 {
+  color: #f8fafc;
+}
+
+:root.theme-dark .cart-hero p,
+:root.theme-dark .cart-empty-card p,
+:root.theme-dark .cart-summary-note,
+:root.theme-dark .cart-item-price {
+  color: #b6c0ce;
+}
+
+:root.theme-dark .cart-item-media {
+  background: #0f1624;
+  border-color: rgba(255, 255, 255, 0.08);
 }

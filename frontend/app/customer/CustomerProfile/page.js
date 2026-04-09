@@ -67,29 +67,30 @@ const CustomerProfile = () => {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const buildFormData = (user) => ({
+    companyName: user?.companyName ?? "",
+    personName: user?.personName ?? "",
+    Email: user?.Email ?? "",
+    contactNumber: user?.contactNumber ?? "",
+    status: user?.status ?? "",
+    id: user?.id ?? "",
+  });
 
   useEffect(() => {
     const loadUserData = () => {
       const storedUser = localStorage.getItem("customerUser");
       if (!storedUser) {
-        router.push("/SignIn");
+        router.push("/Home");
         return;
       }
 
       try {
         const userData = JSON.parse(storedUser);
         setCustomerUser(userData);
-        setFormData({
-          companyName: userData.companyName || "",
-          personName: userData.personName || "",
-          Email: userData.Email || "",
-          contactNumber: userData.contactNumber || "",
-          status: userData.status || "",
-          id: userData.id || "",
-        });
+        setFormData(buildFormData(userData));
       } catch (error) {
         console.error("Error parsing user data:", error);
-        router.push("/SignIn");
+        router.push("/Home");
       }
     };
 
@@ -146,7 +147,7 @@ const CustomerProfile = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (response.status === 401) {
-          router.push("/SignIn");
+          router.push("/Home");
           return;
         }
         const data = await response.json();
@@ -218,7 +219,7 @@ const CustomerProfile = () => {
     event.preventDefault();
     const token = localStorage.getItem("token");
     if (!token) {
-      router.push("/SignIn");
+      router.push("/Home");
       return;
     }
 
@@ -244,7 +245,7 @@ const CustomerProfile = () => {
         }
       );
       if (response.status === 401) {
-        router.push("/SignIn");
+        router.push("/Home");
         return;
       }
 
@@ -305,7 +306,7 @@ const CustomerProfile = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (response.status === 401) {
-        router.push("/SignIn");
+        router.push("/Home");
         return;
       }
       const data = await response.json();
@@ -375,7 +376,7 @@ const CustomerProfile = () => {
 
       localStorage.setItem("customerUser", JSON.stringify(updatedUser));
       setCustomerUser(updatedUser);
-      setFormData(updatedUser);
+      setFormData(buildFormData(updatedUser));
       setIsEditing(false);
       window.dispatchEvent(new Event("storage"));
 
@@ -418,7 +419,7 @@ const CustomerProfile = () => {
 
     const token = localStorage.getItem("token");
     if (!token) {
-      router.push("/SignIn");
+      router.push("/Home");
       return;
     }
 
@@ -477,7 +478,7 @@ const CustomerProfile = () => {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("customerUser");
-    router.push("/SignIn");
+    router.push("/Home");
   };
 
   const sectionMeta = {
@@ -521,7 +522,7 @@ const CustomerProfile = () => {
 
   return (
     <>
-      <Navbar disableFilters disableSearch />
+      <Navbar disableFilters disableSearch hideCategories />
       <div className="settings-page">
         <Box className="settings-shell">
           {showHeader && (
@@ -569,7 +570,7 @@ const CustomerProfile = () => {
                       className="settings-primary"
                       onClick={() => {
                         if (isEditing) {
-                          setFormData(customerUser);
+                          setFormData(buildFormData(customerUser));
                           setIsEditing(false);
                         } else {
                           setIsEditing(true);
@@ -582,7 +583,7 @@ const CustomerProfile = () => {
                   <p className="settings-identity-note">
                     {isEditing
                       ? "Editing enabled — remember to save your changes."
-                      : "Profile is locked. Click edit to update your details."}
+                      : "Click edit to update your details."}
                   </p>
                 </div>
 
@@ -663,7 +664,7 @@ const CustomerProfile = () => {
                             type="button"
                             className="settings-secondary"
                             onClick={() => {
-                              setFormData(customerUser);
+                              setFormData(buildFormData(customerUser));
                               setIsEditing(false);
                             }}
                             disabled={isLoading}
@@ -1028,7 +1029,7 @@ const CustomerProfile = () => {
         title="Account support"
         description="Tell us what you need help with and our team will assist you."
         email="support@phalls.com"
-        phone="+91 90000 11122"
+        phone="+91 6383684548"
         orderNumber={null}
       />
       <Footer />
@@ -1037,3 +1038,4 @@ const CustomerProfile = () => {
 };
 
 export default CustomerProfile;
+

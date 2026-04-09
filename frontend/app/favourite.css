@@ -21,6 +21,20 @@
   --nb-ease:        cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
+:root.theme-dark {
+  --nb-bg:          #0b0f17;
+  --nb-surface:     #101624;
+  --nb-card:        rgba(17, 24, 39, 0.96);
+  --nb-card-hover:  #1a2335;
+  --nb-border:      #2a3143;
+  --nb-border-md:   #364056;
+  --nb-pink-glow:   rgba(233, 30, 99, 0.3);
+  --nb-cream:       #f1f5f9;
+  --nb-cream-muted: #b8c2d1;
+  --nb-cream-dim:   #9aa4b2;
+  --nb-cream-faint: #6b7280;
+}
+
 /* ── Base ────────────────────────────────────────────────── */
 .nb-page {
   min-height: 100vh;
@@ -204,13 +218,14 @@
   position: relative;
   aspect-ratio: 3 / 4;
   overflow: hidden;
-  background: linear-gradient(160deg, #fff1f7, #fffafc 60%, #fff6fb);
+  background: #ffffff;
 }
 
 .nb-card-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  background: #ffffff;
   transition: transform 0.65s var(--nb-ease);
 }
 

@@ -27,7 +27,7 @@ export default function Home() {
           </p>
           <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:justify-center md:justify-start">
             <Link
-              href="/SignIn"
+              href="/Home"
               className="inline-flex items-center justify-center rounded-full px-7 py-3.5 text-sm font-semibold text-white transition-all duration-300 hover:scale-[1.03] premium-shadow magenta-gradient"
             >
               Explore Marketplace
@@ -83,3 +83,4 @@ export default function Home() {
     </section>
   );
 }
+

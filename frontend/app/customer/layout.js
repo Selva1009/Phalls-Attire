@@ -25,12 +25,14 @@ function CustomerLayoutInner({ children }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const THEME_KEY = "customerTheme";
   const isPublicRoute =
-    pathname === "/customer/products" || pathname?.startsWith("/customer/product/");
+    pathname === "/customer/products" ||
+    pathname?.startsWith("/customer/product/") ||
+    pathname === "/Home";
 
   useEffect(() => {
     const isAuthed = hasFullCustomerAuth();
     if (!isAuthed && !isPublicRoute) {
-      router.replace("/SignIn");
+      router.replace("/Home");
       return;
     }
     setIsVerified(true);
@@ -74,7 +76,7 @@ function CustomerLayoutInner({ children }) {
   }, [pathname]);
 
   const allItems = [
-    { id: "home",          label: "Home",             href: "/customer/products",                                           icon: <HomeOutlined sx={{ fontSize: 18 }} /> },
+    { id: "home",          label: "Home",             href: "/Home",                                           icon: <HomeOutlined sx={{ fontSize: 18 }} /> },
     { id: "wishlist",      label: "Wishlist",         href: "/customer/favourites",      icon: <FavoriteBorder sx={{ fontSize: 18 }} /> },
     { id: "cart",          label: "My Cart",          href: "/customer/cart",          icon: <ShoppingCartCheckout sx={{ fontSize: 18 }} /> },
     { id: "order-history", label: "Order History",    href: "/customer/orders", icon: <History sx={{ fontSize: 18 }} /> },
@@ -123,14 +125,6 @@ function CustomerLayoutInner({ children }) {
   };
 
   if (!isVerified) return null;
-
-  if (isPublicRoute) {
-    return (
-      <main style={{ minHeight: "100vh", padding: "96px 28px 64px 22px" }}>
-        {children}
-      </main>
-    );
-  }
 
   const W  = 252;
   const WC = 66;

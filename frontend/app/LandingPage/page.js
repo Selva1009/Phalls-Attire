@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -64,42 +65,86 @@ const trustPoints = [
   "Responsive premium experience across landing, sign-in, and customer pages",
 ];
 
+const landingCategories = [
+  "Women's Tops",
+  "Exquisite Churidar Suits",
+  "Premium Co-Ord Sets",
+  "Designer Gowns",
+  "Kurta Pant Dupatta Sets",
+  "Nightwear Trio Sets",
+  "Pure Cotton Nightwear",
+  "Designer Sarees",
+  "Signature Leggings",
+];
+
+const categorySlug = (value) =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/[’']/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
 export default function LandingPage() {
   const [isSignupCardOpen, setSignupCardOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState(null);
+  const pathname = usePathname();
+  const isAbout = pathname === "/About";
+  const homeHref = isAbout ? "/Home" : "#home";
+  const brandHref = isAbout ? "/Home" : "/";
+  const trustPointsDisplay = isAbout
+    ? trustPoints.filter((point) => !/sign[- ]?in|sign[- ]?up/i.test(point))
+    : trustPoints;
 
   return (
     <div className="landing-page">
       <header className="landing-navbar">
         <div className="landing-shell landing-nav-inner">
-          <Link href="/" className="landing-brand">
+          <Link href={brandHref} className="landing-brand">
             <div className="landing-logo-shell">
               <div className="landing-logo-core">
                 <img src="/Logo.png" alt="Phalls logo" className="landing-logo-image" />
               </div>
             </div>
             <div>
-              <p className="landing-brand-name">PHALLS</p>
+              <p className="landing-brand-name">PHALLS Attire</p>
               <p className="landing-brand-tag">Curated premium marketplace</p>
             </div>
           </Link>
 
           <nav className="landing-nav-links">
-            <a href="#home">Home</a>
+            <a href={homeHref}>Home</a>
             <a href="#experience">Experience</a>
             <a href="#why">Why Phalls</a>
-            <a href="#join">Join</a>
+            {!isAbout && <a href="#join">Join</a>}
           </nav>
 
-          <div className="landing-nav-actions">
-            <button type="button" className="landing-button landing-button-secondary" onClick={() => setSignupCardOpen(true)}>
-              Sign Up
-            </button>
-            <Link href="/SignIn" className="landing-button landing-button-primary">
-              Sign In
-            </Link>
-          </div>
+          {!isAbout && (
+            <div className="landing-nav-actions">
+              <button type="button" className="landing-button landing-button-secondary" onClick={() => setSignupCardOpen(true)}>
+                Sign Up
+              </button>
+              <Link href="/Home" className="landing-button landing-button-primary">
+                Sign In
+              </Link>
+            </div>
+          )}
         </div>
+
+        {!isAbout && (
+          <div className="landing-category-strip">
+            <div className="landing-shell landing-category-row">
+              {landingCategories.map((category) => (
+                <Link
+                  key={category}
+                  href={`/Home?category=${categorySlug(category)}#explore`}
+                  className="landing-category-pill"
+                >
+                  {category}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </header>
 
       <main className="landing-main landing-shell">
@@ -113,15 +158,17 @@ export default function LandingPage() {
               This template shifts Phalls away from a conventional corporate feel into a richer branded experience with stronger mood, modern hierarchy, and more attractive storytelling.
             </p>
 
-            <div className="landing-hero-actions">
-              <Link href="/SignIn" className="landing-button landing-button-primary">
-                Enter Marketplace
-                <ArrowRight size={18} />
-              </Link>
-              <button type="button" className="landing-button landing-button-secondary" onClick={() => setSignupCardOpen(true)}>
-                Join Phalls
-              </button>
-            </div>
+            {!isAbout && (
+              <div className="landing-hero-actions">
+                <Link href="/Home" className="landing-button landing-button-primary">
+                  Enter Marketplace
+                  <ArrowRight size={18} />
+                </Link>
+                <button type="button" className="landing-button landing-button-secondary" onClick={() => setSignupCardOpen(true)}>
+                  Join Phalls
+                </button>
+              </div>
+            )}
 
             <div className="landing-highlight-row">
               {highlights.map((item) => (
@@ -208,7 +255,7 @@ export default function LandingPage() {
               Better looking pages create stronger trust before action.
             </h2>
             <div className="landing-trust-list">
-              {trustPoints.map((point) => (
+              {trustPointsDisplay.map((point) => (
                 <div key={point} className="landing-trust-item">
                   <Check size={18} />
                   <span>{point}</span>
@@ -236,26 +283,28 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="join" className="landing-section">
-          <div className="landing-surface-card landing-cta-card">
-            <span className="landing-eyebrow">Join The Experience</span>
-            <h2 className="landing-section-title">
-              Enter a marketplace that now feels more premium from the first scroll.
-            </h2>
-            <p className="landing-section-text">
-              Choose your access path and continue into the same platform through a stronger front-door experience.
-            </p>
-            <div className="landing-hero-actions landing-cta-actions">
-              <button type="button" className="landing-button landing-button-primary" onClick={() => setSignupCardOpen(true)}>
-                Sign Up
-                <ArrowRight size={18} />
-              </button>
-              <Link href="/SignIn" className="landing-button landing-button-secondary">
-                Sign In
-              </Link>
+        {!isAbout && (
+          <section id="join" className="landing-section">
+            <div className="landing-surface-card landing-cta-card">
+              <span className="landing-eyebrow">Join The Experience</span>
+              <h2 className="landing-section-title">
+                Enter a marketplace that now feels more premium from the first scroll.
+              </h2>
+              <p className="landing-section-text">
+                Choose your access path and continue into the same platform through a stronger front-door experience.
+              </p>
+              <div className="landing-hero-actions landing-cta-actions">
+                <button type="button" className="landing-button landing-button-primary" onClick={() => setSignupCardOpen(true)}>
+                  Sign Up
+                  <ArrowRight size={18} />
+                </button>
+                <Link href="/Home" className="landing-button landing-button-secondary">
+                  Sign In
+                </Link>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
       </main>
 
       <footer className="landing-footer landing-shell">
@@ -267,15 +316,15 @@ export default function LandingPage() {
             </h2>
           </div>
           <div className="landing-footer-links">
-            <a href="#home">Home</a>
+            <a href={homeHref}>Home</a>
             <a href="#experience">Experience</a>
             <a href="#why">Why Phalls</a>
-            <Link href="/SignIn">Sign In</Link>
+            {!isAbout && <Link href="/Home">Sign In</Link>}
           </div>
         </div>
       </footer>
 
-      {isSignupCardOpen && (
+      {!isAbout && isSignupCardOpen && (
         <div className="landing-modal-backdrop" onClick={() => setSignupCardOpen(false)}>
           <div className="landing-surface-card landing-modal-card" onClick={(e) => e.stopPropagation()}>
             <button
@@ -332,3 +381,4 @@ export default function LandingPage() {
     </div>
   );
 }
+

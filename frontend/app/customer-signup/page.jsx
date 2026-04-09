@@ -80,7 +80,7 @@ const CustomerSignup = () => {
             email: formValues.email.trim(),
           });
           clearAuthRedirect();
-          router.push("/customer/products");
+          router.push("/Home");
         }
       } else {
         Swal.fire({

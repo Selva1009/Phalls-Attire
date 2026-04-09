@@ -2,7 +2,7 @@
 
 import { API_BASE_URL } from "@/lib/api";
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Search,
   ShoppingCart,
@@ -29,6 +29,7 @@ const Navbar = ({
   disableSearch,
   variant = "default",
   onAuthTrigger,
+  hideCategories = false,
 }) => {
   const [search, setSearch] = useState("");
   const [cartCount, setCartCount] = useState(0);
@@ -37,14 +38,42 @@ const Navbar = ({
   const [priceMenuOpen, setPriceMenuOpen] = useState(false);
   const [selectedPriceLabel, setSelectedPriceLabel] = useState("All Prices");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
+  const [categoryMenuPinned, setCategoryMenuPinned] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
   const priceMenuRef = useRef(null);
+  const categoryMenuRef = useRef(null);
   const isHomeVariant = variant === "home";
+  const isOnHome =
+    (pathname || "").replace(/\/+$/, "") === "/Home";
   const navLinks = [
-    { label: "Home", href: "/customer/products" },
-    { label: "Categories", href: "/customer/products#categories" },
-    { label: "New Arrivals", href: "/customer/products#highlights" },
-    { label: "Best Sellers", href: "/customer/products#explore" },
+    { label: "Home", href: "/Home" },
+    { label: "Categories", href: "/Home#categories" },
+    { label: "New Arrivals", href: "/Home#highlights" },
+    { label: "Best Sellers", href: "/Home#explore" },
+  ];
+  const visibleNavLinks = hideCategories
+    ? navLinks.filter((link) => link.label !== "Categories")
+    : navLinks;
+
+  const categorySlug = (value) =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/[’']/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+  const categoryItems = [
+    "Women's Tops",
+    "Exquisite Churidar Suits",
+    "Premium Co-Ord Sets",
+    "Designer Gowns",
+    "Kurta Pant Dupatta Sets",
+    "Nightwear Trio Sets",
+    "Pure Cotton Nightwear",
+    "Designer Sarees",
+    "Signature Leggings",
   ];
 
   const [customerUser, setCustomerUser] = useState(() => {
@@ -142,12 +171,24 @@ const Navbar = ({
     return () => window.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (categoryMenuRef.current && !categoryMenuRef.current.contains(event.target)) {
+        setCategoryMenuOpen(false);
+        setCategoryMenuPinned(false);
+      }
+    };
+
+    window.addEventListener("mousedown", handleClickOutside);
+    return () => window.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const triggerAuth = (mode = "login") => {
     if (onAuthTrigger) {
       onAuthTrigger(mode);
       return;
     }
-    router.push(mode === "signup" ? "/customer-signup" : "/SignIn");
+    router.push(mode === "signup" ? "/customer-signup" : "/Home");
   };
 
   const handleProtectedNav = (path) => {
@@ -185,8 +226,48 @@ const Navbar = ({
       localStorage.clear();
       clearSignupSession();
       await showLogoutSuccess("You have been signed out successfully.");
-      router.push("/SignIn");
+      router.push("/Home");
     }
+  };
+
+  const dispatchHomeScroll = (hash, category = "") => {
+    if (typeof window === "undefined") return;
+    if (!hash) {
+      window.history.replaceState({}, "", "/Home");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    window.dispatchEvent(
+      new CustomEvent("category-nav", { detail: { category, hash } })
+    );
+  };
+
+  const handleCategoryNavigate = (href, category = "") => {
+    setCategoryMenuOpen(false);
+    setCategoryMenuPinned(false);
+    const hash = href.includes("#categories")
+      ? "categories"
+      : href.includes("#explore")
+        ? "explore"
+        : "";
+    if (isOnHome) {
+      dispatchHomeScroll(hash, category);
+      return;
+    }
+    router.push(href, { scroll: false });
+  };
+
+  const handleNavLink = (href) => {
+    const hash = href.includes("#categories")
+      ? "categories"
+      : href.includes("#explore")
+        ? "explore"
+        : "";
+    if (isOnHome) {
+      dispatchHomeScroll(hash, "");
+      return;
+    }
+    router.push(href, { scroll: false });
   };
 
   const currentDate = new Date().toLocaleDateString("en-US", {
@@ -198,7 +279,7 @@ const Navbar = ({
     <>
       <nav className={`customer-nav customer-nav-desktop ${isHomeVariant ? "customer-nav-home" : ""}`}>
         <div className="customer-nav-brand-group">
-          <Link href="/customer/products">
+          <Link href="/Home">
             <div className="customer-nav-logo-shell">
               <div className="customer-nav-logo-core">
                 <img
@@ -211,7 +292,7 @@ const Navbar = ({
           </Link>
 
           <div className="customer-nav-brand-copy">
-            <p className="customer-nav-brand-label">Phalls</p>
+            <p className="customer-nav-brand-label">Phalls Attire</p>
             <p className="customer-nav-brand-subtitle">
               Curated styles for every occasion
             </p>
@@ -219,11 +300,64 @@ const Navbar = ({
 
           {isHomeVariant && (
             <div className="customer-nav-links">
-              {navLinks.map((link) => (
-                <a key={link.href} href={link.href}>
-                  {link.label}
-                </a>
-              ))}
+              {visibleNavLinks.map((link) =>
+                link.label === "Categories" ? (
+                  <div
+                    key={link.label}
+                    className="customer-nav-category"
+                    ref={categoryMenuRef}
+                  >
+                    <button
+                      type="button"
+                      className="customer-nav-link-button"
+                      onClick={() => {
+                        setCategoryMenuPinned((prev) => {
+                          const nextPinned = !prev;
+                          setCategoryMenuOpen(nextPinned);
+                          return nextPinned;
+                        });
+                      }}
+                      aria-haspopup="true"
+                      aria-expanded={categoryMenuOpen}
+                    >
+                      Categories
+                    </button>
+                    <div className={`customer-nav-category-menu ${categoryMenuOpen ? "open" : ""}`}>
+                      <button
+                        type="button"
+                        className="customer-nav-category-item customer-nav-category-all"
+                        onClick={() => handleCategoryNavigate("/Home#categories", "")}
+                      >
+                        View all
+                      </button>
+                      {categoryItems.map((item) => (
+                        <button
+                          type="button"
+                          key={item}
+                          className="customer-nav-category-item"
+                          onClick={() =>
+                            handleCategoryNavigate(
+                              `/Home?category=${categorySlug(item)}#explore`,
+                              item
+                            )
+                          }
+                        >
+                          {item}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    key={link.href}
+                    type="button"
+                    className="customer-nav-link-button"
+                    onClick={() => handleNavLink(link.href)}
+                  >
+                    {link.label}
+                  </button>
+                )
+              )}
             </div>
           )}
         </div>
@@ -246,6 +380,54 @@ const Navbar = ({
                   setSearchQuery && setSearchQuery(e.target.value);
                 }}
               />
+            </div>
+          )}
+
+          {!isHomeVariant && !hideCategories && (
+            <div
+              className="customer-nav-category customer-nav-category-center"
+              ref={categoryMenuRef}
+            >
+              <button
+                type="button"
+                className="customer-nav-category-pill"
+                onClick={() => {
+                  setCategoryMenuPinned((prev) => {
+                    const nextPinned = !prev;
+                    setCategoryMenuOpen(nextPinned);
+                    return nextPinned;
+                  });
+                }}
+                aria-haspopup="true"
+                aria-expanded={categoryMenuOpen}
+              >
+                Categories
+                <ChevronDown size={14} />
+              </button>
+              <div className={`customer-nav-category-menu ${categoryMenuOpen ? "open" : ""}`}>
+                <button
+                  type="button"
+                  className="customer-nav-category-item customer-nav-category-all"
+                  onClick={() => handleCategoryNavigate("/Home#categories", "")}
+                >
+                  View all
+                </button>
+                {categoryItems.map((item) => (
+                  <button
+                    type="button"
+                    key={item}
+                    className="customer-nav-category-item"
+                    onClick={() =>
+                      handleCategoryNavigate(
+                        `/Home?category=${categorySlug(item)}#explore`,
+                        item
+                      )
+                    }
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
@@ -486,14 +668,17 @@ const Navbar = ({
             <div className="customer-nav-mobile-links">
               {isHomeVariant &&
                 navLinks.map((link) => (
-                  <a
+                  <button
                     key={link.href}
-                    href={link.href}
+                    type="button"
                     className="customer-nav-mobile-link"
-                    onClick={() => setMobileMenuOpen(false)}
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      handleNavLink(link.href);
+                    }}
                   >
                     {link.label}
-                  </a>
+                  </button>
                 ))}
 
               {customerUser && (
@@ -584,3 +769,4 @@ const Navbar = ({
 };
 
 export default Navbar;
+

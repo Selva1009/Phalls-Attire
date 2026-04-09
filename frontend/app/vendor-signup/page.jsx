@@ -110,7 +110,7 @@ const VendorSignup = () => {
           confirmButtonText: "Okay",
         });
         if (result.isConfirmed) {
-          router.push("./SignIn");
+          router.push("./Home");
         }
       } else {
         Swal.fire({
@@ -233,3 +233,4 @@ const VendorSignup = () => {
 };
 
 export default VendorSignup;
+

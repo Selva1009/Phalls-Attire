@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
-import ImageSlider from "../SignIn/ImageSlider";
+import ImageSlider from "../Home/ImageSlider";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Swal from "sweetalert2";
@@ -79,7 +79,7 @@ export default function ResetPassword() {
         confirmButtonText: "Go to Signin",
       }).then((result) => {
         if (result.isConfirmed) {
-          router.push("/SignIn");
+          router.push("/Home");
         }
       });
     } catch (error) {
@@ -220,7 +220,7 @@ export default function ResetPassword() {
             {/* Back to Sign In */ }
             <div className="mt-4 2xl:mt-6 text-sm 2xl:text-base">
               <Link
-                href="/SignIn"
+                href="/Home"
                 className="text-blue-500 hover:text-blue-700 flex items-center"
               >
                 <ArrowLeft className="w-4 h-4 mr-1" />
@@ -233,3 +233,4 @@ export default function ResetPassword() {
     </div>
   );
 }
+
