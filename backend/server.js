@@ -4,10 +4,11 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const mysql = require("mysql2");
 const { sendOTP } = require("./utils/mailer"); 
+const { ensureUploadsDir } = require("./utils/uploads");
 const cors = require("cors");
 const app = express();
 const port = Number(process.env.SERVER_PORT || process.env.API_PORT) || 5000;
-app.use("/uploads",express.static("uploads"));
+app.use("/uploads", express.static(ensureUploadsDir()));
 
 app.set("trust proxy", 1);
 app.use(cors());
@@ -77,4 +78,5 @@ app.use("/api/payments", paymentRouter);
 app.listen(port,'0.0.0.0', () => {
   console.log(`Server is running on http://0.0.0.0:${port}`);
 });
+
 

@@ -4,25 +4,39 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const { requireFields } = require("../utils/validation");
+const { UPLOADS_DIR, ensureUploadsDir } = require("../utils/uploads");
 
 const router = express.Router();
 
+const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"]);
+
+const fileFilter = (req, file, cb) => {
+  const extension = path.extname(file.originalname || "").toLowerCase();
+  if (IMAGE_EXTENSIONS.has(extension) && /^image\//i.test(file.mimetype || "")) {
+    return cb(null, true);
+  }
+
+  req.uploadValidationError =
+    "Only JPG, JPEG, PNG, WEBP, GIF, or AVIF product images are supported.";
+  return cb(null, false);
+};
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadPath = "uploads/";
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
-    }
-    cb(null, uploadPath);
+    cb(null, ensureUploadsDir());
   },
   filename: (req, file, cb) => {
     cb(null, `${Date.now()}${path.extname(file.originalname)}`);
   },
 });
 
-const upload = multer({ storage });
+const upload = multer({ storage, fileFilter });
 
 router.put("/product/:id", upload.single("productImage"), async (req, res) => {
+  if (req.uploadValidationError) {
+    return res.status(400).json({ message: req.uploadValidationError });
+  }
+
   try {
     const { price, description, hsn_code, stock_status } = req.body;
 
@@ -40,7 +54,7 @@ router.put("/product/:id", upload.single("productImage"), async (req, res) => {
 
     let productImage = existingProduct[0].productImage;
     if (req.file) {
-      if (productImage) fs.unlinkSync(path.join("uploads", productImage));
+      if (productImage) fs.unlinkSync(path.join(UPLOADS_DIR, productImage));
       productImage = req.file.filename;
     }
 
@@ -69,5 +83,3 @@ router.put("/product/:id", upload.single("productImage"), async (req, res) => {
 });
 
 module.exports = router;
-
-

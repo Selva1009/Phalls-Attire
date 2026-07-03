@@ -24,7 +24,7 @@ const buildImageUrl = (product, cacheKey = "") => {
   if (!imageName) {
     const isFallback =
       typeof product?.id === "string" && product.id.startsWith("fallback-");
-    return isFallback ? product?.localImage || "/CordSet1 (21).jpeg" : "/placeholder-product.png";
+    return isFallback ? product?.localImage || "/CordSet1 (21).jpeg" : "/notfound.jpg";
   }
   if (/^https?:\/\//i.test(imageName)) {
     return imageName;

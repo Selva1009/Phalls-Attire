@@ -247,7 +247,7 @@ export default function ProductDetails() {
                         alt={ product.productName }
                         className="h-10 w-10 rounded object-cover"
                         onError={ (e) => {
-                          e.target.src = "/placeholder-product.png";
+                          e.target.src = "/notfound.jpg";
                         } }
                       />
                     </td>

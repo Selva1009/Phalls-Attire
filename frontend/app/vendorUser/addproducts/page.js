@@ -28,6 +28,8 @@ export default function AddProduct() {
   const [previewImage, setPreviewImage] = useState(null);
   const [bulkFile, setBulkFile] = useState(null);
   const [bulkImages, setBulkImages] = useState([]);
+  const [restoreImages, setRestoreImages] = useState([]);
+  const [restoringImages, setRestoringImages] = useState(false);
 
   useEffect(() => {
     const storedVendor = localStorage.getItem("vendorUser");
@@ -69,6 +71,7 @@ export default function AddProduct() {
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
+    if (!file) return;
     setProductImage(file);
     setPreviewImage(URL.createObjectURL(file));
   };
@@ -265,6 +268,67 @@ export default function AddProduct() {
     }
   };
 
+  const handleImageRestore = async (e) => {
+    e.preventDefault();
+
+    if (!vendorUserId) {
+      Swal.fire({
+        title: "Error!",
+        text: "Vendor user ID not available.",
+        icon: "error",
+      });
+      return;
+    }
+
+    if (!restoreImages.length) {
+      Swal.fire({
+        title: "Missing Images",
+        text: "Select the product images you want to restore.",
+        icon: "warning",
+      });
+      return;
+    }
+
+    const restoreFormData = new FormData();
+    restoreFormData.append("vendor_user_id", vendorUserId);
+    restoreImages.forEach((image) => restoreFormData.append("images", image));
+
+    setRestoringImages(true);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/auth/products/restore-product-images`,
+        { method: "POST", body: restoreFormData }
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Image recovery failed.");
+      }
+
+      const unmatchedPreview = (data.unmatched || []).slice(0, 5).join("\n");
+      Swal.fire({
+        title: "Image Recovery Complete",
+        text:
+          `Restored: ${data.restoredCount || 0}\n` +
+          `Unmatched: ${data.unmatchedCount || 0}\n` +
+          `Failed: ${data.failedCount || 0}` +
+          (unmatchedPreview ? `\n\nUnmatched files:\n${unmatchedPreview}` : ""),
+        icon: data.unmatchedCount || data.failedCount ? "warning" : "success",
+        confirmButtonColor: "#3085d6",
+      });
+      setRestoreImages([]);
+    } catch (error) {
+      Swal.fire({
+        title: "Recovery Failed",
+        text: error.message,
+        icon: "error",
+        confirmButtonColor: "#d33",
+      });
+    } finally {
+      setRestoringImages(false);
+    }
+  };
+
   return (
     <>
       <div className="max-w-3xl mx-auto bg-white p-6 rounded-xl shadow-lg mt-8 font-sans w-full md:w-4/5 lg:w-3/5">
@@ -272,6 +336,38 @@ export default function AddProduct() {
           <IoBagAdd size={25} />
           Add New Product
         </h2>
+
+        <form
+          className="mb-8 rounded-lg border border-dashed border-pink-300 bg-pink-50/40 p-4 text-sm text-gray-700"
+          onSubmit={handleImageRestore}
+        >
+          <div className="flex flex-col gap-3">
+            <div>
+              <p className="font-semibold text-black">Restore Existing Product Images</p>
+              <p className="mt-1 text-xs text-gray-600">
+                Select all images at once. Each filename must exactly match the existing
+                <code className="ml-1">productImage</code> value in the database.
+              </p>
+            </div>
+            <input
+              type="file"
+              accept=".jpg,.jpeg,.png,.webp,.gif,.avif"
+              multiple
+              onChange={(e) => setRestoreImages(Array.from(e.target.files || []))}
+              className="w-full rounded-md border bg-white p-2 font-sans"
+            />
+            <p className="text-xs text-gray-600">
+              Selected: {restoreImages.length} image{restoreImages.length === 1 ? "" : "s"}
+            </p>
+            <button
+              type="submit"
+              disabled={restoringImages || !restoreImages.length}
+              className="w-full rounded-md bg-pink-700 px-6 py-2 font-sans text-white transition hover:bg-pink-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            >
+              {restoringImages ? "Restoring Images..." : "Restore Product Images"}
+            </button>
+          </div>
+        </form>
 
         <form
           className="mb-8 rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-700"
@@ -316,7 +412,7 @@ export default function AddProduct() {
                 <label className="block font-medium mb-2">Product Images</label>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept=".jpg,.jpeg,.png,.webp,.gif,.avif"
                   multiple
                   onChange={(e) => setBulkImages(Array.from(e.target.files || []))}
                   className="w-full p-2 border rounded-md font-sans"
@@ -463,6 +559,7 @@ export default function AddProduct() {
             <label className="block font-medium mb-2">Image</label>
             <input
               type="file"
+              accept=".jpg,.jpeg,.png,.webp,.gif,.avif"
               onChange={handleImageChange}
               className="w-full p-2 border rounded-md font-sans"
               required

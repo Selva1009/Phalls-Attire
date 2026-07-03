@@ -1,7 +1,7 @@
 "use client";
 
 import { API_BASE_URL } from "@/lib/api";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Heart, Star, X } from "lucide-react";
 import Navbar from "../components/Navbar";
@@ -14,7 +14,10 @@ import {
 } from "@/lib/customerSession";
 import styles from "./customer-page.module.css";
 
-const PRODUCTS_PER_PAGE = 20;
+const PRODUCTS_PER_PAGE = 25;
+const MISSING_IMAGE_DATA_URL = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1000" viewBox="0 0 800 1000"><rect width="800" height="1000" fill="#f7eef2"/><text x="400" y="500" text-anchor="middle" dominant-baseline="middle" fill="#9b6b80" font-family="Arial, sans-serif" font-size="36">Image unavailable</text></svg>'
+)}`;
 
 const curatedCategories = [
   {
@@ -117,25 +120,16 @@ const testimonials = [
 const formatPrice = (value) =>
   `Rs. ${Number(value || 0).toLocaleString("en-IN")}`;
 
-const buildImageUrl = (product, cacheKey = "") => {
-  const imageName =
-    product?.productImage ||
-    product?.image_name ||
-    product?.product_image ||
-    product?.image;
-  if (!imageName) {
-    const isFallback =
-      typeof product?.id === "string" && product.id.startsWith("fallback-");
-    return isFallback ? product?.localImage || "/CordSet1 (21).jpeg" : "/placeholder-product.png";
+const buildImageUrl = (product) => {
+  if (/^data:image\//i.test(product?.imageUrl || "")) {
+    return product.imageUrl;
   }
-  if (/^https?:\/\//i.test(imageName)) {
-    return imageName;
-  }
-  const cleaned = String(imageName)
-    .replace(/^\/?uploads\//i, "")
-    .replace(/^\/+/, "");
-  const suffix = cacheKey ? `?v=${cacheKey}` : "";
-  return `${API_BASE_URL}/uploads/${cleaned}${suffix}`;
+
+  const isFallback =
+    typeof product?.id === "string" && product.id.startsWith("fallback-");
+  return isFallback
+    ? product?.localImage || "/CordSet1 (21).jpeg"
+    : MISSING_IMAGE_DATA_URL;
 };
 
 const normalizeText = (value) =>
@@ -402,7 +396,6 @@ function ProductCard({
   onClick,
   onToggleWishlist,
   isWishlisted,
-  imageCacheBuster,
   onQuickView,
   canHover,
 }) {
@@ -433,9 +426,13 @@ function ProductCard({
         onMouseLeave={handleHoverEnd}
       >
         <img
-          src={buildImageUrl(product, `${imageCacheBuster}-${product.id || ""}`)}
+          src={buildImageUrl(product)}
           alt={product.productName}
           className={styles.productImage}
+          onError={(event) => {
+            event.currentTarget.onerror = null;
+            event.currentTarget.src = MISSING_IMAGE_DATA_URL;
+          }}
         />
         <div className={styles.productOverlay} />
         <button
@@ -482,11 +479,12 @@ function ProductCard({
 
 export default function ProductsPage() {
   const [products, setProducts] = useState([]);
-  const [displayedProducts, setDisplayedProducts] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [priceFilter, setPriceFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [wishlist, setWishlist] = useState([]);
@@ -499,7 +497,6 @@ export default function ProductsPage() {
   const [quickViewOpen, setQuickViewOpen] = useState(false);
   const [quickViewSource, setQuickViewSource] = useState("hover");
   const [canHover, setCanHover] = useState(false);
-  const imageCacheBuster = useMemo(() => Date.now(), []);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -623,6 +620,13 @@ export default function ProductsPage() {
   }, [searchQuery]);
 
   useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    return () => window.clearTimeout(timeout);
+  }, [searchQuery]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     if (!isMounted || !wishlistLoaded) return;
     if (window.location.hash === "#categories") {
@@ -665,30 +669,28 @@ export default function ProductsPage() {
   }, [quickViewOpen]);
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchProducts = async () => {
       setLoading(true);
       setError("");
 
-      const cachedProducts =
-        typeof window !== "undefined"
-          ? sessionStorage.getItem("customerProductsCache")
-          : null;
-      let cachedList = null;
-      if (cachedProducts) {
-        try {
-          const parsedProducts = JSON.parse(cachedProducts);
-          if (Array.isArray(parsedProducts)) {
-            cachedList = parsedProducts;
-          }
-        } catch {
-          sessionStorage.removeItem("customerProductsCache");
-        }
-      }
-
       try {
         const response = await fetch(
-          `${API_BASE_URL}/api/auth/products/get-products/all`,
-          { cache: "no-store" }
+          `${API_BASE_URL}/api/auth/products/customer-products`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              page: currentPage,
+              limit: PRODUCTS_PER_PAGE,
+              search: debouncedSearchQuery.trim(),
+              category: categoryFilter,
+              sort: priceFilter,
+            }),
+            cache: "no-store",
+            signal: controller.signal,
+          }
         );
 
         if (!response.ok) {
@@ -702,72 +704,25 @@ export default function ProductsPage() {
         }
 
         setProducts(data.products);
-        if (typeof window !== "undefined") {
-          sessionStorage.setItem("customerProductsCache", JSON.stringify(data.products));
+        setTotalPages(Number(data.pagination?.totalPages || 0));
+        if (data.pagination?.page && data.pagination.page !== currentPage) {
+          setCurrentPage(data.pagination.page);
         }
       } catch (fetchError) {
-        if (cachedList) {
-          setProducts(cachedList);
-          setError("");
-        } else {
-          setProducts([]);
-          setError("Unable to load products right now.");
-        }
+        if (fetchError.name === "AbortError") return;
+        setProducts([]);
+        setTotalPages(0);
+        setError("Unable to load products right now.");
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
 
     fetchProducts();
-  }, []);
-
-  useEffect(() => {
-    let filtered = [...products];
-
-    if (searchQuery) {
-      filtered = applySearch(filtered, searchQuery);
-    }
-
-    if (categoryFilter) {
-      filtered = filtered.filter((product) => matchesCategory(product, categoryFilter));
-    }
-
-    if (priceFilter === "low") {
-      filtered.sort((a, b) => Number(a.price) - Number(b.price));
-    } else if (priceFilter === "high") {
-      filtered.sort((a, b) => Number(b.price) - Number(a.price));
-    }
-
-    const totalFilteredPages = Math.ceil(filtered.length / PRODUCTS_PER_PAGE) || 1;
-
-    if (currentPage > totalFilteredPages) {
-      setCurrentPage(1);
-      return;
-    }
-
-    const startIndex = (currentPage - 1) * PRODUCTS_PER_PAGE;
-    setDisplayedProducts(filtered.slice(startIndex, startIndex + PRODUCTS_PER_PAGE));
-  }, [categoryFilter, currentPage, priceFilter, products, searchQuery]);
-
-  const searchedProducts = useMemo(
-    () => (searchQuery ? applySearch(products, searchQuery) : products),
-    [products, searchQuery]
-  );
-
-  const filteredProducts = useMemo(
-    () =>
-      searchedProducts.filter((product) => {
-        if (categoryFilter && !matchesCategory(product, categoryFilter)) {
-          return false;
-        }
-        return true;
-      }),
-    [categoryFilter, searchedProducts]
-  );
+    return () => controller.abort();
+  }, [categoryFilter, currentPage, debouncedSearchQuery, priceFilter]);
 
   if (!isMounted || !wishlistLoaded) return null;
-
-  const totalPages = Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE);
 
   const openAuthModal = (mode = "login", route = "") => {
     setAuthTab(mode);
@@ -977,15 +932,14 @@ export default function ProductsPage() {
           {!loading && !error && (
             <>
               <div className={styles.productGrid}>
-                {displayedProducts.length > 0 ? (
-                  displayedProducts.map((product) => (
+                {products.length > 0 ? (
+                  products.map((product) => (
                     <ProductCard
                       key={product.id}
                       product={product}
                       onClick={handleProductClick}
                       onToggleWishlist={toggleWishlist}
                       isWishlisted={wishlist.includes(product.id)}
-                      imageCacheBuster={imageCacheBuster}
                       onQuickView={openQuickView}
                       canHover={canHover}
                     />
@@ -995,7 +949,7 @@ export default function ProductsPage() {
                 )}
               </div>
 
-              {displayedProducts.length > 0 && totalPages > 1 && (
+              {products.length > 0 && totalPages > 1 && (
                 <div className={styles.pagination}>
                   <button
                     type="button"
@@ -1145,7 +1099,7 @@ export default function ProductsPage() {
             </button>
             <div className={styles.quickViewMedia}>
               <img
-                src={buildImageUrl(quickViewProduct, `${imageCacheBuster}-${quickViewProduct.id || ""}`)}
+                src={buildImageUrl(quickViewProduct)}
                 alt={quickViewProduct.productName}
                 className={styles.quickViewImage}
               />

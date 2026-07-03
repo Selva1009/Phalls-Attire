@@ -7,24 +7,101 @@ const fsp = require("fs").promises;
 const XLSX = require("xlsx");
 const { v4: uuidv4 } = require("uuid");
 const { requireFields } = require("../utils/validation");
+const { UPLOADS_DIR, ensureUploadsDir } = require("../utils/uploads");
 
 const router = express.Router();
 
+const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"]);
+const IMAGE_MIME_TYPES = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+  ".avif": "image/avif",
+};
+
+const readProductImageDataUrl = async (productImage) => {
+  if (!productImage || /^https?:\/\//i.test(productImage)) return null;
+
+  const imageName = path.basename(
+    String(productImage)
+      .replace(/^\/?uploads\//i, "")
+      .replace(/^\/+/, "")
+  );
+  const extension = path.extname(imageName).toLowerCase();
+  const mimeType = IMAGE_MIME_TYPES[extension];
+  if (!mimeType) return null;
+
+  try {
+    const imageBuffer = await fsp.readFile(path.join(UPLOADS_DIR, imageName));
+    return `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      console.error("Unable to read product image", {
+        imageName,
+        code: error.code,
+      });
+    }
+    return null;
+  }
+};
+
+const isSupportedImage = (file) => {
+  const extension = path.extname(file.originalname || "").toLowerCase();
+  return IMAGE_EXTENSIONS.has(extension) && /^image\//i.test(file.mimetype || "");
+};
+
+const fileFilter = (req, file, cb) => {
+  if (file.fieldname === "file") {
+    return cb(null, true);
+  }
+
+  if (isSupportedImage(file)) {
+    return cb(null, true);
+  }
+
+  req.uploadValidationError =
+    "Only JPG, JPEG, PNG, WEBP, GIF, or AVIF product images are supported.";
+  return cb(null, false);
+};
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadPath = "uploads/";
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
-    }
-    cb(null, uploadPath);
+    cb(null, ensureUploadsDir());
   },
   filename: (req, file, cb) => {
     cb(null, `${uuidv4()}${path.extname(file.originalname)}`);
   },
 });
 
-const upload = multer({ storage });
-const uploadBulk = multer({ storage });
+const restoreStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const restoreTempDir = path.join(ensureUploadsDir(), ".restore-temp");
+    fs.mkdirSync(restoreTempDir, { recursive: true });
+    cb(null, restoreTempDir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, `${uuidv4()}${path.extname(file.originalname).toLowerCase()}`);
+  },
+});
+
+const upload = multer({ storage, fileFilter });
+const uploadBulk = multer({ storage, fileFilter });
+const restoreImagesUpload = multer({
+  storage: restoreStorage,
+  fileFilter,
+  limits: { files: 200, fileSize: 25 * 1024 * 1024 },
+});
+
+const handleRestoreImagesUpload = (req, res, next) => {
+  restoreImagesUpload.array("images", 200)(req, res, (error) => {
+    if (error) {
+      return res.status(400).json({ message: error.message || "Image upload failed." });
+    }
+    return next();
+  });
+};
 
 const bulkJobStore = new Map();
 const bulkJobQueue = [];
@@ -345,6 +422,10 @@ const parseBulkFile = (filePath) => {
 
 // Add Product
 router.post("/add-product", upload.single("productImage"), async (req, res) => {
+  if (req.uploadValidationError) {
+    return res.status(400).json({ message: req.uploadValidationError });
+  }
+
   const { vendor_user_id, productName, brand, category, price, description, hsn_code, stock_status } = req.body;
   const productImage = req.file ? req.file.filename : null;
 
@@ -510,6 +591,75 @@ router.get("/bulk-upload-status/:jobId", (req, res) => {
   });
 });
 
+// Restore existing product images without creating or changing product rows.
+router.post("/restore-product-images", handleRestoreImagesUpload, async (req, res) => {
+  const files = req.files || [];
+  const vendorId = Number.parseInt(req.body?.vendor_user_id, 10);
+
+  if (!Number.isFinite(vendorId) || vendorId <= 0) {
+    await Promise.all(files.map((file) => fsp.unlink(file.path).catch(() => {})));
+    return res.status(400).json({ message: "Valid vendor user ID is required." });
+  }
+
+  if (!files.length) {
+    return res.status(400).json({
+      message: req.uploadValidationError || "Select at least one supported image.",
+    });
+  }
+
+  try {
+    const [products] = await db.query(
+      `SELECT productImage
+       FROM products
+       WHERE vendor_id = ? AND is_deleted = FALSE AND productImage IS NOT NULL`,
+      [vendorId]
+    );
+    const expectedNames = new Map(
+      products.map((product) => [
+        path.basename(String(product.productImage)).toLowerCase(),
+        path.basename(String(product.productImage)),
+      ])
+    );
+    const restored = [];
+    const unmatched = [];
+    const failed = [];
+
+    for (const file of files) {
+      const originalName = path.basename(file.originalname || "");
+      const expectedName = expectedNames.get(originalName.toLowerCase());
+
+      if (!expectedName) {
+        unmatched.push(originalName);
+        await fsp.unlink(file.path).catch(() => {});
+        continue;
+      }
+
+      try {
+        await fsp.copyFile(file.path, path.join(UPLOADS_DIR, expectedName));
+        restored.push(expectedName);
+      } catch (error) {
+        failed.push({ filename: originalName, reason: error.code || "COPY_FAILED" });
+      } finally {
+        await fsp.unlink(file.path).catch(() => {});
+      }
+    }
+
+    return res.status(200).json({
+      message: "Product image recovery completed.",
+      restoredCount: restored.length,
+      unmatchedCount: unmatched.length,
+      failedCount: failed.length,
+      restored,
+      unmatched,
+      failed,
+    });
+  } catch (error) {
+    await Promise.all(files.map((file) => fsp.unlink(file.path).catch(() => {})));
+    console.error("Product image recovery error", { code: error.code, errno: error.errno });
+    return res.status(500).json({ message: "Unable to restore product images." });
+  }
+});
+
 // Get All Products
 router.get("/get-products/all", async (req, res) => {
   try {
@@ -519,6 +669,74 @@ router.get("/get-products/all", async (req, res) => {
     res.status(200).json({ products });
   } catch (error) {
     console.error("Server error", { code: error.code, errno: error.errno });
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Get customer products with server-side search and pagination.
+router.post("/customer-products", async (req, res) => {
+  try {
+    const payload = req.body || {};
+    const requestedPage = Number.parseInt(payload.page, 10);
+    const requestedLimit = Number.parseInt(payload.limit, 10);
+    const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+    const limit = Number.isFinite(requestedLimit) && requestedLimit > 0
+      ? Math.min(requestedLimit, 100)
+      : 25;
+    const search = String(payload.search || "").trim();
+    const category = String(payload.category || "").trim();
+    const sort = String(payload.sort || "").trim();
+    const where = ["is_deleted = FALSE"];
+    const params = [];
+
+    if (search) {
+      search.split(/\s+/).filter(Boolean).forEach((term) => {
+        const value = `%${term}%`;
+        where.push(
+          "(productName LIKE ? OR brand LIKE ? OR category LIKE ? OR seller LIKE ? OR description LIKE ?)"
+        );
+        params.push(value, value, value, value, value);
+      });
+    }
+
+    if (category) {
+      const value = `%${category}%`;
+      where.push("(category LIKE ? OR productName LIKE ? OR description LIKE ?)");
+      params.push(value, value, value);
+    }
+
+    const whereClause = `WHERE ${where.join(" AND ")}`;
+    const orderBy =
+      sort === "low"
+        ? "ORDER BY price ASC, id DESC"
+        : sort === "high"
+          ? "ORDER BY price DESC, id DESC"
+          : "ORDER BY id DESC";
+    const [countRows] = await db.query(
+      `SELECT COUNT(*) AS total FROM products ${whereClause}`,
+      params
+    );
+    const total = Number(countRows[0]?.total || 0);
+    const totalPages = Math.ceil(total / limit);
+    const safePage = totalPages > 0 ? Math.min(page, totalPages) : 1;
+    const offset = (safePage - 1) * limit;
+    const [products] = await db.query(
+      `SELECT * FROM products ${whereClause} ${orderBy} LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
+    const productsWithImages = await Promise.all(
+      products.map(async (product) => ({
+        ...product,
+        imageUrl: await readProductImageDataUrl(product.productImage),
+      }))
+    );
+
+    res.status(200).json({
+      products: productsWithImages,
+      pagination: { page: safePage, limit, total, totalPages },
+    });
+  } catch (error) {
+    console.error("Customer products error", { code: error.code, errno: error.errno });
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -556,6 +774,10 @@ router.get("/get-product/:id", async (req, res) => {
 
 // Update Product
 router.put("/update-product/:id", upload.single("productImage"), async (req, res) => {
+  if (req.uploadValidationError) {
+    return res.status(400).json({ message: req.uploadValidationError });
+  }
+
   try {
     const { price, description, hsn_code, stock_status } = req.body;
 
@@ -573,7 +795,7 @@ router.put("/update-product/:id", upload.single("productImage"), async (req, res
 
     let productImage = existingProduct[0].productImage;
     if (req.file) {
-      if (productImage) fs.unlinkSync(path.join("uploads", productImage));
+      if (productImage) fs.unlinkSync(path.join(UPLOADS_DIR, productImage));
       productImage = req.file.filename;
     }
 
@@ -618,7 +840,7 @@ router.delete("/delete-product/:id", async (req, res) => {
     }
 
     const productImage = existingProduct[0].productImage;
-    const imagePath = productImage ? path.join("uploads", productImage) : null;
+    const imagePath = productImage ? path.join(UPLOADS_DIR, productImage) : null;
 
     try {
       await db.query("START TRANSACTION");
