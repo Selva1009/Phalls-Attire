@@ -7,6 +7,11 @@ const router = express.Router();
 
 router.use(authenticate);
 
+const getProductImageUrl = (imageName) => {
+  if (!imageName) return null;
+  return /^https?:\/\//i.test(imageName) ? imageName : `/uploads/${imageName}`;
+};
+
 router.get("/", async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -39,7 +44,7 @@ router.get("/", async (req, res) => {
         category: row.category,
         description: row.description,
         price: row.price,
-        image_url: row.image_name ? `/uploads/${row.image_name}` : null,
+        image_url: getProductImageUrl(row.image_name),
         hsn_code: null,
         stock_status: null,
       },

@@ -8,6 +8,10 @@ const XLSX = require("xlsx");
 const { v4: uuidv4 } = require("uuid");
 const { requireFields } = require("../utils/validation");
 const { UPLOADS_DIR, ensureUploadsDir } = require("../utils/uploads");
+const {
+  uploadProductImageToSupabase,
+  deleteProductImageFromSupabase,
+} = require("../utils/supabaseProductImages");
 
 const router = express.Router();
 
@@ -22,7 +26,8 @@ const IMAGE_MIME_TYPES = {
 };
 
 const readProductImageDataUrl = async (productImage) => {
-  if (!productImage || /^https?:\/\//i.test(productImage)) return null;
+  if (!productImage) return null;
+  if (/^https?:\/\//i.test(productImage)) return productImage;
 
   const imageName = path.basename(
     String(productImage)
@@ -66,14 +71,7 @@ const fileFilter = (req, file, cb) => {
   return cb(null, false);
 };
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, ensureUploadsDir());
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${uuidv4()}${path.extname(file.originalname)}`);
-  },
-});
+const memoryStorage = multer.memoryStorage();
 
 const restoreStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -86,8 +84,16 @@ const restoreStorage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage, fileFilter });
-const uploadBulk = multer({ storage, fileFilter });
+const upload = multer({
+  storage: memoryStorage,
+  fileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
+const uploadBulk = multer({
+  storage: memoryStorage,
+  fileFilter,
+  limits: { files: 201, fileSize: 25 * 1024 * 1024 },
+});
 const restoreImagesUpload = multer({
   storage: restoreStorage,
   fileFilter,
@@ -163,7 +169,9 @@ const runNextBulkJob = async () => {
     );
   } catch (error) {
     status.state = "failed";
-    status.error = error.message || "Server error";
+    status.error = error.message === "Supabase image upload failed."
+      ? "Image upload failed."
+      : error.message || "Server error";
     status.finishedAt = new Date().toISOString();
     console.error(`[bulk-upload:${jobId}] failed`, {
       code: error.code,
@@ -188,7 +196,7 @@ const processBulkUpload = async ({ vendor_user_id, bulkFile, imageFiles, jobId }
   }
 
   const companyName = userResult[0].companyName;
-  const rows = parseBulkFile(bulkFile.path);
+  const rows = parseBulkFile(bulkFile);
 
   if (!rows.length) {
     throw new Error("No data rows found in file.");
@@ -197,9 +205,10 @@ const processBulkUpload = async ({ vendor_user_id, bulkFile, imageFiles, jobId }
   console.info(`${logPrefix} parsed rows=${rows.length}`);
 
   const imageMap = new Map();
-  imageFiles.forEach((file) => {
-    imageMap.set(file.originalname.trim().toLowerCase(), file.filename);
-  });
+  for (const file of imageFiles) {
+    const imageUrl = await uploadProductImageToSupabase(file);
+    imageMap.set(file.originalname.trim().toLowerCase(), imageUrl);
+  }
 
   const errors = [];
   let insertedCount = 0;
@@ -343,17 +352,6 @@ const processBulkUpload = async ({ vendor_user_id, bulkFile, imageFiles, jobId }
     }
   }
 
-  try {
-    await fsp.unlink(bulkFile.path);
-  } catch (error) {
-    if (error.code !== "ENOENT") {
-      console.error(`${logPrefix} error deleting bulk file`, {
-        code: error.code,
-        errno: error.errno,
-      });
-    }
-  }
-
   return {
     insertedCount,
     errors,
@@ -410,8 +408,8 @@ const canonicalizeRow = (row) => {
   };
 };
 
-const parseBulkFile = (filePath) => {
-  const workbook = XLSX.readFile(filePath, { raw: false });
+const parseBulkFile = (file) => {
+  const workbook = XLSX.read(file.buffer, { type: "buffer", raw: false });
   const sheetName = workbook.SheetNames[0];
   if (!sheetName) {
     return [];
@@ -427,7 +425,6 @@ router.post("/add-product", upload.single("productImage"), async (req, res) => {
   }
 
   const { vendor_user_id, productName, brand, category, price, description, hsn_code, stock_status } = req.body;
-  const productImage = req.file ? req.file.filename : null;
 
   if (
     !requireFields(res, {
@@ -442,13 +439,18 @@ router.post("/add-product", upload.single("productImage"), async (req, res) => {
     return;
   }
 
+  let uploadedProductImage = null;
   try {
+    const productImage = req.file ? await uploadProductImageToSupabase(req.file) : null;
+    uploadedProductImage = productImage;
+
     const [userResult] = await db.query(
       "SELECT companyName FROM vendorusersignup WHERE id = ?",
       [vendor_user_id]
     );
 
     if (userResult.length === 0) {
+      await deleteProductImageFromSupabase(uploadedProductImage);
       return res.status(404).json({ message: "Vendor user not found." });
     }
 
@@ -460,6 +462,7 @@ router.post("/add-product", upload.single("productImage"), async (req, res) => {
       [vendor_user_id, productName, brand, category, price, companyName, productImage, description, hsn_code || null, stock_status || null]
     );
     if (!insertResult.affectedRows) {
+      await deleteProductImageFromSupabase(uploadedProductImage);
       return res.status(500).json({ message: "Failed to add product" });
     }
 
@@ -468,8 +471,18 @@ router.post("/add-product", upload.single("productImage"), async (req, res) => {
       productId: insertResult.insertId,
     });
   } catch (error) {
-    console.error("Server error", { code: error.code, errno: error.errno });
-    res.status(500).json({ message: "Server error" });
+    await deleteProductImageFromSupabase(uploadedProductImage);
+    console.error("Add product error", {
+      code: error.code,
+      errno: error.errno,
+      message: error.message,
+      details: error.details,
+    });
+    res.status(500).json({
+      message: error.message === "Supabase image upload failed."
+        ? "Image upload failed."
+        : "Server error",
+    });
   }
 });
 
@@ -517,8 +530,10 @@ router.post(
           ? "Vendor user not found."
           : error.message === "No data rows found in file."
           ? "No data rows found in file."
+          : error.message === "Supabase image upload failed."
+          ? "Image upload failed."
           : "Server error";
-      const status = message === "Vendor user not found." ? 404 : message === "No data rows found in file." ? 400 : 500;
+      const status = message === "Vendor user not found." ? 404 : message === "No data rows found in file." || message === "Image upload failed." ? 400 : 500;
       console.error("Bulk upload server error", { code: error.code, errno: error.errno });
       return res.status(status).json({ message });
     }
@@ -549,18 +564,10 @@ router.post(
       return res.status(400).json({ message: "Only CSV or XLSX files are supported." });
     }
 
-    const imageFiles = (req.files?.images || []).map((file) => ({
-      originalname: file.originalname,
-      filename: file.filename,
-    }));
-
     const jobId = enqueueBulkJob({
       vendor_user_id,
-      bulkFile: {
-        path: bulkFile.path,
-        originalname: bulkFile.originalname,
-      },
-      imageFiles,
+      bulkFile,
+      imageFiles: req.files?.images || [],
     });
 
     return res.status(202).json({
@@ -778,6 +785,7 @@ router.put("/update-product/:id", upload.single("productImage"), async (req, res
     return res.status(400).json({ message: req.uploadValidationError });
   }
 
+  let uploadedProductImage = null;
   try {
     const { price, description, hsn_code, stock_status } = req.body;
 
@@ -794,9 +802,11 @@ router.put("/update-product/:id", upload.single("productImage"), async (req, res
     }
 
     let productImage = existingProduct[0].productImage;
+    let oldProductImage = null;
     if (req.file) {
-      if (productImage) fs.unlinkSync(path.join(UPLOADS_DIR, productImage));
-      productImage = req.file.filename;
+      oldProductImage = productImage;
+      productImage = await uploadProductImageToSupabase(req.file);
+      uploadedProductImage = productImage;
     }
 
     const [updateResult] = await db.execute(
@@ -813,13 +823,28 @@ router.put("/update-product/:id", upload.single("productImage"), async (req, res
       ]
     );
     if (!updateResult.affectedRows) {
+      await deleteProductImageFromSupabase(uploadedProductImage);
       return res.status(500).json({ message: "Failed to update product" });
+    }
+
+    if (oldProductImage) {
+      await deleteProductImageFromSupabase(oldProductImage);
     }
 
     res.status(200).json({ message: "Product updated successfully!" });
   } catch (error) {
-    console.error("Server error", { code: error.code, errno: error.errno });
-    res.status(500).json({ message: "Internal Server Error" });
+    await deleteProductImageFromSupabase(uploadedProductImage);
+    console.error("Update product error", {
+      code: error.code,
+      errno: error.errno,
+      message: error.message,
+      details: error.details,
+    });
+    res.status(500).json({
+      message: error.message === "Supabase image upload failed."
+        ? "Image upload failed."
+        : "Internal Server Error",
+    });
   }
 });
 
@@ -840,7 +865,6 @@ router.delete("/delete-product/:id", async (req, res) => {
     }
 
     const productImage = existingProduct[0].productImage;
-    const imagePath = productImage ? path.join(UPLOADS_DIR, productImage) : null;
 
     try {
       await db.query("START TRANSACTION");
@@ -868,14 +892,8 @@ router.delete("/delete-product/:id", async (req, res) => {
       return res.status(500).json({ message: "Internal Server Error" });
     }
 
-    if (imagePath) {
-      try {
-        await fsp.unlink(imagePath);
-      } catch (error) {
-        if (error.code !== "ENOENT") {
-          console.error("Image delete error", { code: error.code, errno: error.errno });
-        }
-      }
+    if (productImage) {
+      await deleteProductImageFromSupabase(productImage);
     }
 
     res.status(200).json({ message: "Product deleted successfully!" });
@@ -920,6 +938,21 @@ router.post("/transfer-products", async (req, res) => {
     console.error("Server error", { code: error.code, errno: error.errno });
     return res.status(500).json({ message: "Server error" });
   }
+});
+
+router.use((error, req, res, next) => {
+  if (error instanceof multer.MulterError) {
+    const message = error.code === "LIMIT_FILE_SIZE"
+      ? "Image file is too large."
+      : error.message || "Image upload failed.";
+    return res.status(400).json({ message });
+  }
+
+  if (error) {
+    return res.status(400).json({ message: error.message || "Image upload failed." });
+  }
+
+  return next();
 });
 
 module.exports = router;

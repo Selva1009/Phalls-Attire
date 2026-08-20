@@ -4,11 +4,9 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const mysql = require("mysql2");
 const { sendOTP } = require("./utils/mailer"); 
-const { ensureUploadsDir } = require("./utils/uploads");
 const cors = require("cors");
 const app = express();
 const port = Number(process.env.SERVER_PORT || process.env.API_PORT) || 5000;
-app.use("/uploads", express.static(ensureUploadsDir()));
 
 app.set("trust proxy", 1);
 app.use(cors());

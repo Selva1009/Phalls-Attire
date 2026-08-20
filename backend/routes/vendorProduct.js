@@ -2,9 +2,11 @@ const express = require("express");
 const db = require("../db");
 const multer = require("multer");
 const path = require("path");
-const fs = require("fs");
 const { requireFields } = require("../utils/validation");
-const { UPLOADS_DIR, ensureUploadsDir } = require("../utils/uploads");
+const {
+  uploadProductImageToSupabase,
+  deleteProductImageFromSupabase,
+} = require("../utils/supabaseProductImages");
 
 const router = express.Router();
 
@@ -21,22 +23,22 @@ const fileFilter = (req, file, cb) => {
   return cb(null, false);
 };
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, ensureUploadsDir());
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}${path.extname(file.originalname)}`);
-  },
-});
+const storage = multer.memoryStorage();
 
-const upload = multer({ storage, fileFilter });
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+  },
+  fileFilter,
+});
 
 router.put("/product/:id", upload.single("productImage"), async (req, res) => {
   if (req.uploadValidationError) {
     return res.status(400).json({ message: req.uploadValidationError });
   }
 
+  let uploadedProductImage = null;
   try {
     const { price, description, hsn_code, stock_status } = req.body;
 
@@ -53,9 +55,11 @@ router.put("/product/:id", upload.single("productImage"), async (req, res) => {
     }
 
     let productImage = existingProduct[0].productImage;
+    let oldProductImage = null;
     if (req.file) {
-      if (productImage) fs.unlinkSync(path.join(UPLOADS_DIR, productImage));
-      productImage = req.file.filename;
+      oldProductImage = productImage;
+      productImage = await uploadProductImageToSupabase(req.file);
+      uploadedProductImage = productImage;
     }
 
     const [updateResult] = await db.execute(
@@ -72,14 +76,44 @@ router.put("/product/:id", upload.single("productImage"), async (req, res) => {
       ]
     );
     if (!updateResult.affectedRows) {
+      await deleteProductImageFromSupabase(uploadedProductImage);
       return res.status(500).json({ message: "Failed to update product" });
+    }
+
+    if (oldProductImage) {
+      await deleteProductImageFromSupabase(oldProductImage);
     }
 
     res.status(200).json({ message: "Product updated successfully!" });
   } catch (error) {
-    console.error("Server error", { code: error.code, errno: error.errno });
-    res.status(500).json({ message: "Internal Server Error" });
+    await deleteProductImageFromSupabase(uploadedProductImage);
+    console.error("Vendor product update error", {
+      code: error.code,
+      errno: error.errno,
+      message: error.message,
+      details: error.details,
+    });
+    res.status(500).json({
+      message: error.message === "Supabase image upload failed."
+        ? "Image upload failed."
+        : "Internal Server Error",
+    });
   }
+});
+
+router.use((error, req, res, next) => {
+  if (error instanceof multer.MulterError) {
+    const message = error.code === "LIMIT_FILE_SIZE"
+      ? "Image file is too large."
+      : error.message || "Image upload failed.";
+    return res.status(400).json({ message });
+  }
+
+  if (error) {
+    return res.status(400).json({ message: error.message || "Image upload failed." });
+  }
+
+  return next();
 });
 
 module.exports = router;
