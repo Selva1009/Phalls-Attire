@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ;
 
 const nextConfig = {
   async rewrites() {

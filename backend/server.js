@@ -1,9 +1,5 @@
 require("dotenv").config({ path: require("path").resolve(__dirname, ".env") });
 const express = require("express");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const mysql = require("mysql2");
-const { sendOTP } = require("./utils/mailer"); 
 const { ensureUploadsDir } = require("./utils/uploads");
 const cors = require("cors");
 const app = express();
@@ -36,7 +32,7 @@ app.use("/api/auth", getvendor);
 const productsRouter = require("./routes/products");
 app.use("/api/auth/products", productsRouter);
 
-const CustomerEdit = require("./routes/Customer");
+const CustomerEdit = require("./routes/customer");
 app.use("/api/customer-edit", CustomerEdit);
 
 const notifyVendorRouter =require("./routes/notifications")

@@ -1,6 +1,5 @@
 const express = require("express");
 const pool = require("../db");
-const nodemailer = require("nodemailer");
 const router = express.Router();
 require("dotenv").config();
 const {sendConfirmationEmail}=require("../utils/mailer");

@@ -1,7 +1,6 @@
 const express = require("express");
 const db = require("../db");
 const router = express.Router();
-const path = require("path");
 const { requireFields } = require("../utils/validation");
 
 // Get all POs for a specific vendor user
@@ -135,10 +134,7 @@ router.put("/update/:poId", async (req, res) => {
 });
 
 // Generate PDF (vendor copy)
-const stateCodes = require("../utils/stateCodes");
 const PDFDocument = require("pdfkit");
-const { convertToWords } = require("../utils/convertToWords");
-const hsnCodeMap = require("../utils/hsnCodeMap");
 
 router.post("/generate-pdf/:poId", async (req, res) => {
   const { poId } = req.params;
