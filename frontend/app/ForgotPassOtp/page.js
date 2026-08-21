@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
-import ImageSlider from "../SignIn/ImageSlider";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -83,14 +82,9 @@ export default function ForgotPassOtp() {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row h-screen w-full">
-      {/* Left Side - Image Slider (hidden on mobile) */ }
-      <div className="hidden lg:block lg:w-1/2 h-full overflow-hidden">
-        <ImageSlider />
-      </div>
-
+    <div className="flex h-screen w-full">
       {/* Right Side - OTP Form */ }
-      <div className="w-full lg:w-1/2 flex items-center justify-center bg-gray-100 px-6 py-10 2xl:py-16">
+      <div className="w-full flex items-center justify-center bg-gray-100 px-6 py-10 2xl:py-16">
         <Card className="w-full max-w-md 2xl:max-w-lg shadow-lg p-6 2xl:p-8 bg-white rounded-lg">
           <CardHeader>
             <div className="relative w-16 h-16 sm:w-20 sm:h-20 2xl:w-24 2xl:h-24 rounded-xl shadow-lg bg-gradient-to-br from-blue-600 to-indigo-500 p-1">
