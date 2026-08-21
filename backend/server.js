@@ -7,7 +7,18 @@ const port = Number(process.env.SERVER_PORT || process.env.API_PORT) || 5000;
 app.use("/uploads", express.static(ensureUploadsDir()));
 
 app.set("trust proxy", 1);
-app.use(cors());
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://phalls-attire-frontend.vercel.app"
+
+];
+
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true
+  })
+);
 app.use(express.json());
 
 app.get("/", (req, res) => {
