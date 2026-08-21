@@ -10,18 +10,25 @@ app.set("trust proxy", 1);
 app.use(cors());
 app.use(express.json());
 
+app.get("/", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Phalls backend is running"
+  })
+})
+
 // Routes
 const CustomerAuthRouter = require("./routes/CustomerSignupAuth");
-app.use("/api/auth/customer", CustomerAuthRouter); 
+app.use("/api/auth/customer", CustomerAuthRouter);
 
 const VendorAuthRouter = require("./routes/VendorSignupAuth");
-app.use("/api/auth/vendor", VendorAuthRouter);  
+app.use("/api/auth/vendor", VendorAuthRouter);
 
 const Signin = require("./routes/SigninAuth");
-app.use("/api/auth", Signin);  
+app.use("/api/auth", Signin);
 
 const ForgotPassword = require("./routes/forgotPasswordOtp");
-app.use("/api/forgotpassword", ForgotPassword);  
+app.use("/api/forgotpassword", ForgotPassword);
 
 const contactUsRouter = require("./routes/ContactUs");
 app.use("/api/contact", contactUsRouter);
@@ -35,23 +42,23 @@ app.use("/api/auth/products", productsRouter);
 const CustomerEdit = require("./routes/customer");
 app.use("/api/customer-edit", CustomerEdit);
 
-const notifyVendorRouter =require("./routes/notifications")
+const notifyVendorRouter = require("./routes/notifications")
 app.use("/api/notification", notifyVendorRouter);
 
 const cartRouter = require("./routes/cart");
 app.use("/api/cart", cartRouter);
 
 const customerUserSignUp = require("./routes/customerUserSignUp");
-app.use("/api/auth/customerUserSignUp",customerUserSignUp);
+app.use("/api/auth/customerUserSignUp", customerUserSignUp);
 
 const vendorUserSignup = require("./routes/vendorUserSignup")
 app.use("/api/auth/vendor", vendorUserSignup);
 
-const po =require("./routes/po")
-app.use("/api/po",po)
+const po = require("./routes/po")
+app.use("/api/po", po)
 
-const PoVendorUser =require("./routes/PoVendorUser")
-app.use("/api/PoVendorUser",PoVendorUser)
+const PoVendorUser = require("./routes/PoVendorUser")
+app.use("/api/PoVendorUser", PoVendorUser)
 
 const addressRouter = require("./routes/address");
 app.use("/api/address", addressRouter);
@@ -71,7 +78,7 @@ app.use("/api/user", userRouter);
 const paymentRouter = require("./routes/payments");
 app.use("/api/payments", paymentRouter);
 
-app.listen(port,'0.0.0.0', () => {
+app.listen(port, '0.0.0.0', () => {
   console.log(`Server is running on http://0.0.0.0:${port}`);
 });
 
