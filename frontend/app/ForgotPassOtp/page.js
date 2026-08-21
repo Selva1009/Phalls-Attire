@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
-import ImageSlider from "../Home/ImageSlider";
+import ImageSlider from "../SignIn/ImageSlider";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
