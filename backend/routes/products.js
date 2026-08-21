@@ -660,8 +660,7 @@ router.post("/restore-product-images", handleRestoreImagesUpload, async (req, re
   }
 });
 
-// Get All Products
-router.get("/get-products/all", async (req, res) => {
+const getAllProducts = async (req, res) => {
   try {
     const [products] = await db.query(
       "SELECT * FROM products WHERE is_deleted = FALSE"
@@ -671,7 +670,11 @@ router.get("/get-products/all", async (req, res) => {
     console.error("Server error", { code: error.code, errno: error.errno });
     res.status(500).json({ message: "Server error" });
   }
-});
+};
+
+// Get All Products
+router.get("/", getAllProducts);
+router.get("/get-products/all", getAllProducts);
 
 // Get customer products with server-side search and pagination.
 router.post("/customer-products", async (req, res) => {
