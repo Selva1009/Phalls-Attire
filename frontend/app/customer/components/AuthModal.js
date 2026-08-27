@@ -85,7 +85,7 @@ export default function AuthModal({
       localStorage.setItem("userType", data.userType);
       localStorage.setItem("userId", data.user.id.toString());
 
-      if (data.userType === "vendor-user") {
+      if (data.userType === "SUPER_ADMIN") {
         localStorage.setItem("vendorUser", JSON.stringify(data.user));
         localStorage.setItem("vendorUserId", data.user.id.toString());
       } else if (data.userType === "customer-user") {
@@ -173,7 +173,7 @@ export default function AuthModal({
       localStorage.setItem("userType", data.userType);
       localStorage.setItem("userId", data.user.id.toString());
 
-      if (data.userType === "vendor-user") {
+      if (data.userType === "SUPER_ADMIN") {
         localStorage.setItem("vendorUser", JSON.stringify(data.user));
         localStorage.setItem("vendorUserId", data.user.id.toString());
       } else if (data.userType === "customer-user") {

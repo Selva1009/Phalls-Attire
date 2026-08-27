@@ -13,7 +13,7 @@ const isValidPhone = (value) => /^\d{10}$/.test(value);
 
 const findUserByPhone = async (phoneNumber) => {
   const [vendorUserRows] = await db.query(
-    "SELECT * FROM vendorusersignup WHERE phoneNumber = ?",
+    "SELECT * FROM vendorusersignup WHERE phoneNumber = ? AND role = 'SUPER_ADMIN'",
     [phoneNumber]
   );
 
@@ -39,9 +39,11 @@ const handleSignin = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    // 1. Check in Vendor User table
+    // Store admins use the existing vendor-user table so product foreign keys and
+    // the existing portal remain compatible. Public vendor accounts are no longer
+    // accepted for login.
     const [vendorUserRows] = await db.query(
-      "SELECT * FROM vendorusersignup WHERE Email = ?",
+      "SELECT * FROM vendorusersignup WHERE Email = ? AND role = 'SUPER_ADMIN'",
       [email]
     );
 
@@ -58,20 +60,21 @@ const handleSignin = async (req, res) => {
       }
 
       const token = jwt.sign(
-        { id: vendorUser.id, userType: "vendor-user" },
+        { id: vendorUser.id, userType: "SUPER_ADMIN", role: "SUPER_ADMIN" },
         JWT_SECRET,
         { expiresIn: "1h" }
       );
 
       return res.status(200).json({
         message: "Login successful",
-        userType: "vendor-user",
+        userType: "SUPER_ADMIN",
+        role: "SUPER_ADMIN",
         user: vendorUser,
         token,
       });
     }
 
-    // 2. Check in Customer User table
+    // Customer login response stays compatible with the current customer flow.
     const [customerUserRows] = await db.query(
       "SELECT * FROM customerusersignup WHERE Email = ?",
       [email]
@@ -90,7 +93,7 @@ const handleSignin = async (req, res) => {
       }
 
       const token = jwt.sign(
-        { id: customerUser.id, userType: "customer-user" },
+        { id: customerUser.id, userType: "customer-user", role: "CUSTOMER" },
         JWT_SECRET,
         { expiresIn: "1h" }
       );
@@ -98,6 +101,7 @@ const handleSignin = async (req, res) => {
       return res.status(200).json({
         message: "Login successful",
         userType: "customer-user",
+        role: "CUSTOMER",
         user: customerUser,
         token,
       });
@@ -192,14 +196,19 @@ router.post("/login-phone", async (req, res) => {
     delete phoneOtpStore[phoneNumber];
 
     const token = jwt.sign(
-      { id: record.user.id, userType: record.userType },
+      {
+        id: record.user.id,
+        userType: record.userType === "vendor-user" ? "SUPER_ADMIN" : "customer-user",
+        role: record.userType === "vendor-user" ? "SUPER_ADMIN" : "CUSTOMER",
+      },
       JWT_SECRET,
       { expiresIn: "1h" }
     );
 
     return res.status(200).json({
       message: "Login successful",
-      userType: record.userType,
+      userType: record.userType === "vendor-user" ? "SUPER_ADMIN" : "customer-user",
+      role: record.userType === "vendor-user" ? "SUPER_ADMIN" : "CUSTOMER",
       user: record.user,
       token,
     });

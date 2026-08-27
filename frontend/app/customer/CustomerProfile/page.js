@@ -29,6 +29,7 @@ import {
   TextField,
 } from "@mui/material";
 import NeedHelpModal from "../../Components/NeedHelpModal";
+import { SUPPORT_EMAIL, SUPPORT_PHONE } from "@/lib/supportContact";
 
 const THEME_KEY = "customerTheme";
 const NOTIFICATIONS_KEY = "customerNotifications";
@@ -1028,8 +1029,8 @@ const CustomerProfile = () => {
         onClose={() => setShowHelp(false)}
         title="Account support"
         description="Tell us what you need help with and our team will assist you."
-        email="support@phalls.com"
-        phone="+91 6383684548"
+        email={SUPPORT_EMAIL}
+        phone={SUPPORT_PHONE}
         orderNumber={null}
       />
       <Footer />

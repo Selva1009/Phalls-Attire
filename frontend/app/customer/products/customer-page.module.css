@@ -63,7 +63,7 @@
   position: relative;
   overflow: hidden;
   border-radius: 0;
-  background: linear-gradient(135deg, #f6c6d8, #f4dae7 46%, #fdecd7 100%);
+  background: linear-gradient(135deg, #321521 0%, #6b2948 55%, #9c4a6d 100%);
   padding: 56px 40px;
   animation: floatIn 0.7s ease;
   width: 100%;
@@ -157,6 +157,7 @@
   margin: 0;
   font-size: clamp(3rem, 5vw, 4.5rem);
   line-height: 1.03;
+  color: #fff8fb;
 }
 
 .heroText,
@@ -173,6 +174,43 @@
   margin: 24px 0 0;
   max-width: 560px;
   font-size: 17px;
+  color: rgba(255, 248, 251, 0.9);
+}
+
+.productPriceBlock,
+.quickViewPriceBlock {
+  display: grid;
+  gap: 3px;
+}
+
+.productMrp,
+.quickViewMrp {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #8a7180;
+  font-size: 12px;
+}
+
+.productSelling,
+.quickViewSelling {
+  margin: 0;
+  color: #56606b;
+  font-size: 12px;
+}
+
+.productMrp span,
+.quickViewMrp span {
+  color: #16803c;
+  font-weight: 700;
+}
+
+.productMrp strong,
+.quickViewMrp strong {
+  color: #56606b;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .heroActions {

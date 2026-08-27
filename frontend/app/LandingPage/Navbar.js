@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   X,
   User,
-  Store,
   Check,
   ArrowRight,
   Home,
@@ -38,8 +37,6 @@ export default function Navbar() {
   const handleContinue = () => {
     if (selectedRole === "Customer") {
       router.push("/customer-signup");
-    } else if (selectedRole === "Vendor") {
-      router.push("/vendor-signup");
     }
   };
 
@@ -276,45 +273,6 @@ export default function Navbar() {
                   </div>
                 </div>
 
-                <div
-                  className={`group relative cursor-pointer overflow-hidden rounded-2xl border p-4 transition-all duration-300 sm:p-5 md:p-6 ${
-                    selectedRole === "Vendor"
-                      ? "border-[#AD1457] bg-white shadow-lg ring-2 ring-[#AD1457]"
-                      : "border-[#f5d4e2] bg-[#fff6fa] hover:shadow-md"
-                  }`}
-                  onClick={() => setSelectedRole("Vendor")}
-                >
-                  <div className="flex items-start space-x-3 sm:space-x-4">
-                    <div
-                      className={`rounded-lg p-2 sm:p-3 ${
-                        selectedRole === "Vendor"
-                          ? "bg-[#f9dbe8] text-[#AD1457]"
-                          : "bg-white text-[#7a5b6b] group-hover:bg-[#fff0f5]"
-                      }`}
-                    >
-                      <Store className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-sm font-semibold text-[#2E2E2E] sm:text-base md:text-[1.05rem]">
-                        Vendor
-                      </h3>
-                      <p className="mt-1 text-xs text-[#7a5b6b] sm:text-sm">
-                        Grow your business with our marketplace
-                      </p>
-                    </div>
-                    <div
-                      className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${
-                        selectedRole === "Vendor"
-                          ? "border-[#AD1457] bg-[#AD1457]"
-                          : "border-[#d8a9bd] group-hover:border-[#AD1457]"
-                      }`}
-                    >
-                      {selectedRole === "Vendor" && (
-                        <Check className="h-3 w-3 text-white" />
-                      )}
-                    </div>
-                  </div>
-                </div>
               </div>
 
               <button

@@ -955,6 +955,21 @@
   color: #fff;
 }
 
+.cart-size-chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+  background: #f3f3f3;
+  border-color: #d6d6d6;
+  color: #8b8b8b;
+  text-decoration: line-through;
+}
+
+.cart-size-chip:disabled.active {
+  background: #f3f3f3;
+  border-color: #d6d6d6;
+  color: #8b8b8b;
+}
+
 .cart-qty-control {
   display: inline-flex;
   align-items: center;

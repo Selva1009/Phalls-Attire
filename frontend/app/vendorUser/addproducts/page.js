@@ -1,608 +1,148 @@
 "use client";
 
 import { API_BASE_URL } from "@/lib/api";
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import * as XLSX from "xlsx";
-import { ToastContainer } from "react-toastify";
 import Swal from "sweetalert2";
-import { IoBagAdd } from "react-icons/io5";
+import { FileSpreadsheet, ImagePlus, Loader2, PackagePlus, Upload, X } from "lucide-react";
+import Button from "@mui/material/Button";
+import ArrowBack from "@mui/icons-material/ArrowBack";
+
+const imageAccept = ".jpg,.jpeg,.png,.webp,.gif,.avif";
+const sizeOptions = ["XS", "S", "M", "L", "XL", "XXL"];
+const emptyForm = {
+  category: "", subcategory: "", brand: "", productName: "", mrp: "",
+  discount_type: "", discount_value: "", stock: "",
+  stock_status: "", description: "", seller: "", sizes: [],
+};
+const inputClass = "mt-2 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-pink-500 focus:ring-4 focus:ring-pink-100";
 
 export default function AddProduct() {
   const router = useRouter();
-  const [vendorUserId, setVendorUserId] = useState(null);
-  const [vendorUser, setVendorUser] = useState(null);
-
-  const [formData, setFormData] = useState({
-    category: "",
-    brand: "",
-    productName: "",
-    price: "",
-    hsn_code: "",
-    stock_status: "",
-    description: "",
-    seller: "",
-  });
-
-  const [productImage, setProductImage] = useState(null);
-  const [previewImage, setPreviewImage] = useState(null);
+  const [admin, setAdmin] = useState(null);
+  const [uploadMode, setUploadMode] = useState("manual");
+  const [form, setForm] = useState(emptyForm);
+  const [images, setImages] = useState([]);
   const [bulkFile, setBulkFile] = useState(null);
   const [bulkImages, setBulkImages] = useState([]);
-  const [restoreImages, setRestoreImages] = useState([]);
-  const [restoringImages, setRestoringImages] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [bulkSaving, setBulkSaving] = useState(false);
 
   useEffect(() => {
-    const storedVendor = localStorage.getItem("vendorUser");
-    if (storedVendor) {
-      const parsedVendor = JSON.parse(storedVendor);
-
-      // ✅ Set vendorUserId as a number (ID only)
-      setVendorUserId(parsedVendor.id);
-
-      // ✅ Set full vendor user object for things like companyName
-      setVendorUser(parsedVendor);
-    } else {
-      Swal.fire({
-        title: "Vendor Not Logged In!",
-        text: "Please log in again to continue adding products.",
-        icon: "warning",
-        confirmButtonColor: "#d33",
-        confirmButtonText: "OK",
-      }).then(() => {
-        router.push("/vendor/login");
-      });
-    }
-  }, []);
-
-  useEffect(() => {
-    if (vendorUser?.companyName) {
-      setFormData((prev) => ({
-        ...prev,
-        seller: vendorUser.companyName,
-      }));
-    }
-  }, [vendorUser]);
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    if (name === "seller") return; // seller should not be changed manually
-    setFormData({ ...formData, [name]: value });
-  };
-
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setProductImage(file);
-    setPreviewImage(URL.createObjectURL(file));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!vendorUserId) {
-      Swal.fire({
-        title: "Error!",
-        text: "Vendor user ID not available.",
-        icon: "error",
-      });
+    const saved = localStorage.getItem("vendorUser");
+    if (!saved || localStorage.getItem("userType") !== "SUPER_ADMIN") {
+      router.replace("/Home");
       return;
     }
+    const parsed = JSON.parse(saved);
+    setAdmin(parsed);
+    setForm((current) => ({ ...current, seller: parsed.companyName || "Phalls Attire" }));
+  }, [router]);
 
-    const formDataToSend = new FormData();
-    formDataToSend.append("productName", formData.productName);
-    formDataToSend.append("brand", formData.brand);
-    formDataToSend.append("category", formData.category);
-    formDataToSend.append("price", formData.price);
-    formDataToSend.append("hsn_code", formData.hsn_code);
-    formDataToSend.append("stock_status", formData.stock_status);
-    formDataToSend.append("seller", formData.seller);
-    formDataToSend.append("description", formData.description);
-    formDataToSend.append("vendor_user_id", vendorUserId);
-    if (productImage) {
-      formDataToSend.append("productImage", productImage);
-    }
+  const finalPrice = useMemo(() => {
+    const price = Number(form.mrp || 0);
+    const discount = Number(form.discount_value || 0);
+    return Math.max(0, price - (form.discount_type === "percentage" ? price * discount / 100 : discount));
+  }, [form.mrp, form.discount_type, form.discount_value]);
 
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/auth/products/add-product`,
-        {
-          method: "POST",
-          body: formDataToSend,
-        }
-      );
+  const change = ({ target: { name, value } }) => setForm((current) => ({ ...current, [name]: value }));
+  const toggleSize = (size) => setForm((current) => ({
+    ...current,
+    sizes: current.sizes.includes(size) ? current.sizes.filter((item) => item !== size) : [...current.sizes, size],
+  }));
+  const chooseImages = (event) => {
+    const selected = Array.from(event.target.files || []);
+    if (selected.length > 10) return Swal.fire({ title: "Too many images", text: "Select up to 10 images.", icon: "warning" });
+    setImages(selected);
+  };
+  const removeImage = (index) => setImages((current) => current.filter((_, i) => i !== index));
 
-      if (response.status === 403) {
-        const data = await response.json();
-        Swal.fire({
-          title: "Product Limit Reached!",
-          text:
-            data.message ||
-            "You have reached the product limit. Please upgrade your subscription to add more products.",
-          imageUrl: "/subscription.gif",
-          imageWidth: 127,
-          imageHeight: 151,
-          imageAlt: "Update Success",
-          confirmButtonColor: "#d33",
-          confirmButtonText: "OK",
-        });
-        return; // Stop further execution if limit is reached
-      }
-
-      if (!response.ok) {
-        throw new Error("Failed to add product");
-      }
-
-      Swal.fire({
-        title: "Success!",
-        text: "Product added successfully!",
-        icon: "success",
-        confirmButtonColor: "#3085d6",
-        confirmButtonText: "OK",
-      });
-
-      // Reset form
-      setFormData({
-        category: "",
-        brand: "",
-        productName: "",
-        price: "",
-        hsn_code: "",
-        stock_status: "",
-        description: "",
-        seller: "",
-      });
-      setProductImage(null);
-      setPreviewImage(null);
-    } catch (error) {
-      Swal.fire({
-        title: "Error!",
-        text: error.message,
-        icon: "error",
-        confirmButtonColor: "#d33",
-        confirmButtonText: "OK",
-      });
-    }
+  const validate = () => {
+    const mrp = Number(form.mrp);
+    const stock = Number(form.stock);
+    const discount = Number(form.discount_value || 0);
+    if (!form.productName.trim() || !form.brand.trim() || !form.category || !form.description.trim()) return "Complete the product name, brand, category, and description.";
+    if (!images.length) return "Add at least one product image.";
+    if (!form.sizes.length) return "Select at least one dress size.";
+    if (!Number.isFinite(mrp) || mrp < 0) return "Enter a valid MRP.";
+    if (!Number.isInteger(stock) || stock < 0) return "Stock must be a whole number of zero or more.";
+    if (!Number.isFinite(discount) || discount < 0 || (form.discount_type === "percentage" && discount > 100) || (form.discount_type === "fixed" && discount > mrp)) return "Enter a valid discount.";
+    return "";
   };
 
-  const bulkHeaders = [
-    "productName",
-    "brand",
-    "category",
-    "price",
-    "hsn_code",
-    "stock_status",
-    "description",
-    "productImage",
-  ];
+  const submitManual = async (event) => {
+    event.preventDefault();
+    const error = validate();
+    if (error) return Swal.fire({ title: "Check product details", text: error, icon: "warning" });
+    const payload = new FormData();
+    Object.entries({ ...form, sizes: JSON.stringify(form.sizes), price: form.mrp }).forEach(([key, value]) => payload.append(key, value || ""));
+    payload.append("vendor_user_id", admin.id);
+    images.forEach((image) => payload.append("productImages", image));
+    setSaving(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/products/add-product`, { method: "POST", headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }, body: payload });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Unable to add product.");
+      await Swal.fire({ title: "Product added", text: "The product is now available in the store listing.", icon: "success", confirmButtonColor: "#db2777" });
+      setForm({ ...emptyForm, seller: admin.companyName || "Phalls Attire" });
+      setImages([]);
+    } catch (error) {
+      Swal.fire({ title: "Upload failed", text: error.message, icon: "error", confirmButtonColor: "#db2777" });
+    } finally { setSaving(false); }
+  };
 
   const downloadTemplate = (type) => {
+    const headers = ["productName", "brand", "category", "price", "stock_status", "description", "productImage"];
     if (type === "csv") {
-      const csvContent = `${bulkHeaders.join(",")}\n`;
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.href = url;
+      link.href = URL.createObjectURL(new Blob([`${headers.join(",")}\n`], { type: "text/csv" }));
       link.download = "products-template.csv";
-      document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
       return;
     }
-
-    const worksheet = XLSX.utils.aoa_to_sheet([bulkHeaders]);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Products");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([headers]), "Products");
     XLSX.writeFile(workbook, "products-template.xlsx");
   };
 
-  const handleBulkUpload = async (e) => {
-    e.preventDefault();
-
-    if (!vendorUserId) {
-      Swal.fire({
-        title: "Error!",
-        text: "Vendor user ID not available.",
-        icon: "error",
-      });
-      return;
-    }
-
-    if (!bulkFile) {
-      Swal.fire({
-        title: "Missing File",
-        text: "Please upload a CSV or XLSX file.",
-        icon: "warning",
-      });
-      return;
-    }
-
-    const formDataToSend = new FormData();
-    formDataToSend.append("vendor_user_id", vendorUserId);
-    formDataToSend.append("file", bulkFile);
-    bulkImages.forEach((image) => {
-      formDataToSend.append("images", image);
-    });
-
+  const submitBulk = async (event) => {
+    event.preventDefault();
+    if (!bulkFile) return Swal.fire({ title: "Choose a file", text: "Select a CSV or XLSX file.", icon: "warning" });
+    const extension = bulkFile.name.toLowerCase().split(".").pop();
+    if (!["csv", "xlsx"].includes(extension)) return Swal.fire({ title: "Unsupported file", text: "Only CSV and XLSX files are supported.", icon: "warning" });
+    const payload = new FormData();
+    payload.append("vendor_user_id", admin.id);
+    payload.append("file", bulkFile);
+    bulkImages.forEach((image) => payload.append("images", image));
+    setBulkSaving(true);
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/auth/products/bulk-upload`,
-        {
-          method: "POST",
-          body: formDataToSend,
-        }
-      );
-
+      const response = await fetch(`${API_BASE_URL}/api/auth/products/bulk-upload`, { method: "POST", headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }, body: payload });
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Bulk upload failed.");
-      }
-
-      const errorPreview = (data.errors || [])
-        .slice(0, 5)
-        .map((err) => `Row ${err.row}: ${err.reason}`)
-        .join("\n");
-
-      Swal.fire({
-        title: "Bulk Upload Complete",
-        text:
-          `Inserted: ${data.insertedCount || 0}\n` +
-          `Failed: ${data.failedCount || 0}` +
-          (errorPreview ? `\n\n${errorPreview}` : ""),
-        icon: data.failedCount ? "warning" : "success",
-        confirmButtonColor: "#3085d6",
-        confirmButtonText: "OK",
-      });
-
-      setBulkFile(null);
-      setBulkImages([]);
-    } catch (error) {
-      Swal.fire({
-        title: "Error!",
-        text: error.message,
-        icon: "error",
-        confirmButtonColor: "#d33",
-        confirmButtonText: "OK",
-      });
-    }
-  };
-
-  const handleImageRestore = async (e) => {
-    e.preventDefault();
-
-    if (!vendorUserId) {
-      Swal.fire({
-        title: "Error!",
-        text: "Vendor user ID not available.",
-        icon: "error",
-      });
-      return;
-    }
-
-    if (!restoreImages.length) {
-      Swal.fire({
-        title: "Missing Images",
-        text: "Select the product images you want to restore.",
-        icon: "warning",
-      });
-      return;
-    }
-
-    const restoreFormData = new FormData();
-    restoreFormData.append("vendor_user_id", vendorUserId);
-    restoreImages.forEach((image) => restoreFormData.append("images", image));
-
-    setRestoringImages(true);
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/auth/products/restore-product-images`,
-        { method: "POST", body: restoreFormData }
-      );
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Image recovery failed.");
-      }
-
-      const unmatchedPreview = (data.unmatched || []).slice(0, 5).join("\n");
-      Swal.fire({
-        title: "Image Recovery Complete",
-        text:
-          `Restored: ${data.restoredCount || 0}\n` +
-          `Unmatched: ${data.unmatchedCount || 0}\n` +
-          `Failed: ${data.failedCount || 0}` +
-          (unmatchedPreview ? `\n\nUnmatched files:\n${unmatchedPreview}` : ""),
-        icon: data.unmatchedCount || data.failedCount ? "warning" : "success",
-        confirmButtonColor: "#3085d6",
-      });
-      setRestoreImages([]);
-    } catch (error) {
-      Swal.fire({
-        title: "Recovery Failed",
-        text: error.message,
-        icon: "error",
-        confirmButtonColor: "#d33",
-      });
-    } finally {
-      setRestoringImages(false);
-    }
+      if (!response.ok) throw new Error(data.message || "Bulk upload failed.");
+      Swal.fire({ title: "Bulk upload complete", text: `Inserted: ${data.insertedCount || 0}\nFailed: ${data.failedCount || 0}`, icon: data.failedCount ? "warning" : "success", confirmButtonColor: "#db2777" });
+      setBulkFile(null); setBulkImages([]);
+    } catch (error) { Swal.fire({ title: "Bulk upload failed", text: error.message, icon: "error", confirmButtonColor: "#db2777" }); }
+    finally { setBulkSaving(false); }
   };
 
   return (
-    <>
-      <div className="max-w-3xl mx-auto bg-white p-6 rounded-xl shadow-lg mt-8 font-sans w-full md:w-4/5 lg:w-3/5">
-        <h2 className="text-lg font-bold text-black mb-4 text-left flex items-center gap-2">
-          <IoBagAdd size={25} />
-          Add New Product
-        </h2>
-
-        <form
-          className="mb-8 rounded-lg border border-dashed border-pink-300 bg-pink-50/40 p-4 text-sm text-gray-700"
-          onSubmit={handleImageRestore}
-        >
-          <div className="flex flex-col gap-3">
-            <div>
-              <p className="font-semibold text-black">Restore Existing Product Images</p>
-              <p className="mt-1 text-xs text-gray-600">
-                Select all images at once. Each filename must exactly match the existing
-                <code className="ml-1">productImage</code> value in the database.
-              </p>
-            </div>
-            <input
-              type="file"
-              accept=".jpg,.jpeg,.png,.webp,.gif,.avif"
-              multiple
-              onChange={(e) => setRestoreImages(Array.from(e.target.files || []))}
-              className="w-full rounded-md border bg-white p-2 font-sans"
-            />
-            <p className="text-xs text-gray-600">
-              Selected: {restoreImages.length} image{restoreImages.length === 1 ? "" : "s"}
-            </p>
-            <button
-              type="submit"
-              disabled={restoringImages || !restoreImages.length}
-              className="w-full rounded-md bg-pink-700 px-6 py-2 font-sans text-white transition hover:bg-pink-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-            >
-              {restoringImages ? "Restoring Images..." : "Restore Product Images"}
-            </button>
-          </div>
-        </form>
-
-        <form
-          className="mb-8 rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-700"
-          onSubmit={handleBulkUpload}
-        >
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-2">
-              <p className="font-semibold text-black">Bulk Upload (CSV/XLSX)</p>
-              <p className="text-xs text-gray-600">
-                Upload a CSV/XLSX file and images together. The <code>productImage</code> column
-                must match the uploaded image filenames.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => downloadTemplate("csv")}
-                  className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-gray-100"
-                >
-                  Download CSV Template
-                </button>
-                <button
-                  type="button"
-                  onClick={() => downloadTemplate("xlsx")}
-                  className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-gray-100"
-                >
-                  Download Excel Template
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div>
-                <label className="block font-medium mb-2">CSV/XLSX File</label>
-                <input
-                  type="file"
-                  accept=".csv,.xlsx"
-                  onChange={(e) => setBulkFile(e.target.files?.[0] || null)}
-                  className="w-full p-2 border rounded-md font-sans"
-                />
-              </div>
-              <div>
-                <label className="block font-medium mb-2">Product Images</label>
-                <input
-                  type="file"
-                  accept=".jpg,.jpeg,.png,.webp,.gif,.avif"
-                  multiple
-                  onChange={(e) => setBulkImages(Array.from(e.target.files || []))}
-                  className="w-full p-2 border rounded-md font-sans"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-start">
-              <button
-                type="submit"
-                className="bg-gray-900 text-white px-6 py-2 rounded-md hover:bg-black transition font-sans w-full sm:w-auto"
-              >
-                Upload Bulk Products
-              </button>
-            </div>
-          </div>
-        </form>
-
-        <form
-          className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-black"
-          onSubmit={handleSubmit}
-        >
-          <div>
-            <label className="block font-medium mb-2">Category</label>
-            <select
-              name="category"
-              value={formData.category}
-              onChange={handleInputChange}
-              className="w-full p-2 border rounded-md font-sans"
-              required
-            >
-              <option value="" className="bg-gray-200">
-                Select Product Category
-              </option>
-
-              <optgroup label="Product Categories">
-                <option value="Exquisite Churidar Suits">
-                  Exquisite Churidar Suits
-                </option>
-                <option value="Premium Co-Ord Sets">Premium Co-Ord Sets</option>
-                <option value="Designer Gowns">Designer Gowns</option>
-                <option value="Kurta Pant Dupatta Ensembles">
-                  Kurta, Pant & Dupatta Ensembles
-                </option>
-                <option value="Nightwear Trio Sets">Nightwear Trio Sets</option>
-                <option value="Pure Cotton Nightwear">
-                  Pure Cotton Nightwear
-                </option>
-                <option value="Signature Leggings">Signature Leggings</option>
-                <option value="Ethnic Tops with Palazzo">
-                  Ethnic Tops with Palazzo
-                </option>
-                <option value="Trendy Tops & T-Shirts">
-                  Trendy Tops & T-Shirts
-                </option>
-                <option value="Designer Sarees">Designer Sarees</option>
-              </optgroup>
-            </select>
-          </div>
-
-          <div>
-            <label className="block font-medium mb-2">Make & Model</label>
-            <input
-              type="text"
-              name="brand"
-              value={formData.brand}
-              onChange={handleInputChange}
-              className="w-full p-2 border rounded-md font-sans"
-              required
-              placeholder="Enter Make & Model"
-            />
-          </div>
-
-          {/* Row 2 */}
-          <div>
-            <label className="block font-medium mb-2">Product Name</label>
-            <input
-              type="text"
-              name="productName"
-              value={formData.productName}
-              onChange={handleInputChange}
-              className="w-full p-2 border rounded-md font-sans"
-              required
-              placeholder="Enter Product Name"
-            />
-          </div>
-
-          <div>
-            <label className="block font-medium mb-2">Price</label>
-            <input
-              type="number"
-              name="price"
-              value={formData.price}
-              onChange={handleInputChange}
-              className="w-full p-2 border rounded-md font-sans"
-              required
-              placeholder="Enter Product Price"
-            />
-          </div>
-
-          <div>
-            <label className="block font-medium mb-2">HSN Code</label>
-            <input
-              type="text"
-              name="hsn_code"
-              value={formData.hsn_code}
-              onChange={handleInputChange}
-              className="w-full p-2 border rounded-md font-sans"
-              required
-              placeholder="Enter HSN Code"
-            />
-          </div>
-
-          <div>
-            <label className="block font-medium mb-2">Stock Status</label>
-            <select
-              name="stock_status"
-              value={formData.stock_status}
-              onChange={handleInputChange}
-              className="w-full p-2 border rounded-md font-sans"
-              required
-            >
-              <option value="">Select Stock Status</option>
-              <option value="In Stock">In Stock</option>
-              <option value="Low Stock">Low Stock</option>
-              <option value="Out of Stock">Out of Stock</option>
-            </select>
-          </div>
-
-          {/* Row 3 */}
-          <div>
-            <label className="block font-medium mb-2">Seller</label>
-            <input
-              type="text"
-              name="seller"
-              value={formData.seller}
-              disabled
-              className="w-full p-2 border rounded-md font-sans bg-gray-100 cursor-not-allowed"
-              placeholder="Seller Name"
-            />
-          </div>
-
-          <div>
-            <label className="block font-medium mb-2">Image</label>
-            <input
-              type="file"
-              accept=".jpg,.jpeg,.png,.webp,.gif,.avif"
-              onChange={handleImageChange}
-              className="w-full p-2 border rounded-md font-sans"
-              required
-            />
-          </div>
-
-          {/* Image Preview */}
-          {previewImage && (
-            <div className="col-span-1 md:col-span-2 flex justify-center">
-              <img
-                src={previewImage}
-                alt="Product Preview"
-                className="w-32 h-32 md:w-40 md:h-40 object-cover rounded-lg border"
-              />
-            </div>
-          )}
-
-          {/* Row 4 (Full Width) */}
-          <div className="col-span-1 md:col-span-2">
-            <label className="block font-medium mb-2">Description</label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleInputChange}
-              className="w-full p-2 border rounded-md h-24 font-sans"
-              required
-              placeholder="Enter Product Description"
-            />
-          </div>
-
-          {/* Submit Button (Full Width) */}
-          <div className="col-span-1 md:col-span-2 flex justify-start">
-            <button
-              type="submit"
-              className="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition font-sans w-full sm:w-auto"
-            >
-              Add Product
-            </button>
-          </div>
-        </form>
-
-        <ToastContainer />
-      </div>
-    </>
+    <main className="mx-auto mt-6 w-full max-w-5xl px-3 pb-12 pt-20 sm:mt-8 sm:px-6 sm:pt-20">
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60">
+        <header className="bg-slate-950 px-5 py-7 text-white sm:px-8"><Button type="button" onClick={() => router.back()} startIcon={<ArrowBack />} sx={{ mb: 2, color: "#cbd5e1", textTransform: "none" }}>Back</Button><p className="text-xs font-semibold uppercase tracking-[0.24em] text-pink-300">Phalls Attire Store</p><div className="mt-2 flex items-center gap-3"><PackagePlus className="h-7 w-7 text-pink-300" /><h1 className="text-2xl font-bold sm:text-3xl">Add Product</h1></div><p className="mt-2 text-sm text-slate-300">Add a product manually or import your catalogue.</p></header>
+        <div className="border-b border-slate-100 p-5 sm:p-8"><fieldset><legend className="text-sm font-semibold text-slate-900">Choose upload method</legend><div className="mt-3 grid gap-3 sm:grid-cols-2">{[["manual", "Manual upload", "Add one product with photos and pricing", ImagePlus], ["bulk", "Bulk upload", "Import CSV/XLSX products with images", FileSpreadsheet]].map(([value, title, text, Icon]) => <label key={value} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition ${uploadMode === value ? "border-pink-500 bg-pink-50 ring-4 ring-pink-100" : "border-slate-200 hover:border-slate-400"}`}><input type="radio" name="uploadMode" checked={uploadMode === value} onChange={() => setUploadMode(value)} className="h-4 w-4 accent-pink-600" /><Icon className="h-5 w-5 text-pink-600" /><span><strong className="block text-sm text-slate-900">{title}</strong><small className="text-xs text-slate-500">{text}</small></span></label>)}</div></fieldset></div>
+        {uploadMode === "bulk" ? (
+          <form onSubmit={submitBulk} className="space-y-6 p-5 sm:p-8"><div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center"><FileSpreadsheet className="mx-auto h-10 w-10 text-slate-500" /><h2 className="mt-3 text-lg font-semibold text-slate-900">Import product catalogue</h2><p className="mt-1 text-sm text-slate-500">Match uploaded image filenames in the <code>productImage</code> column.</p><div className="mt-4 flex flex-wrap justify-center gap-2"><button type="button" onClick={() => downloadTemplate("csv")} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700">Download CSV template</button><button type="button" onClick={() => downloadTemplate("xlsx")} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700">Download Excel template</button></div></div><label className="block text-sm font-semibold text-slate-700">CSV/XLSX file<input type="file" accept=".csv,.xlsx" onChange={(event) => setBulkFile(event.target.files?.[0] || null)} className={inputClass} required /></label><label className="block text-sm font-semibold text-slate-700">Product images<input type="file" accept={imageAccept} multiple onChange={(event) => setBulkImages(Array.from(event.target.files || []))} className={inputClass} /></label><button type="submit" disabled={bulkSaving} className="inline-flex items-center gap-2 rounded-lg bg-slate-950 px-5 py-3 text-sm font-semibold text-white disabled:opacity-60">{bulkSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}{bulkSaving ? "Uploading..." : "Upload catalogue"}</button></form>
+        ) : (
+          <form onSubmit={submitManual} className="space-y-8 p-5 sm:p-8">
+            <section><h2 className="text-lg font-semibold text-slate-900">Product images</h2><label className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-pink-200 bg-pink-50/50 px-5 py-8 text-center"><ImagePlus className="h-8 w-8 text-pink-600" /><span className="mt-2 text-sm font-semibold text-slate-800">Choose up to 10 images</span><span className="mt-1 text-xs text-slate-500">JPG, PNG, WEBP, GIF, or AVIF</span><input type="file" accept={imageAccept} multiple onChange={chooseImages} className="sr-only" required /></label>{images.length > 0 && <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">{images.map((image, index) => <div key={`${image.name}-${image.lastModified}`} className="group relative aspect-square overflow-hidden rounded-lg border"><img src={URL.createObjectURL(image)} alt={`Product preview ${index + 1}`} className="h-full w-full object-cover" /><button type="button" onClick={() => removeImage(index)} aria-label={`Remove image ${index + 1}`} className="absolute right-2 top-2 rounded-full bg-slate-950/80 p-1.5 text-white opacity-0 transition group-hover:opacity-100"><X className="h-4 w-4" /></button></div>)}</div>}</section>
+            <section><h2 className="mb-4 border-b border-slate-100 pb-3 text-lg font-semibold text-slate-900">Product information</h2><div className="grid gap-5 sm:grid-cols-2"><label className="text-sm font-semibold text-slate-700">Product name<input className={inputClass} name="productName" placeholder="Enter product name" value={form.productName} onChange={change} required /></label><label className="text-sm font-semibold text-slate-700">Brand / make<input className={inputClass} name="brand" placeholder="Enter brand or make" value={form.brand} onChange={change} required /></label><label className="text-sm font-semibold text-slate-700">Category<select className={inputClass} name="category" value={form.category} onChange={change} required><option value="">Select category</option>{["Exquisite Churidar Suits", "Premium Co-Ord Sets", "Designer Gowns", "Kurta Pant Dupatta Ensembles", "Nightwear Trio Sets", "Pure Cotton Nightwear", "Signature Leggings", "Designer Sarees"].map((category) => <option key={category}>{category}</option>)}</select></label><label className="text-sm font-semibold text-slate-700">Subcategory<input className={inputClass} name="subcategory" placeholder="Enter subcategory (optional)" value={form.subcategory} onChange={change} /></label><label className="text-sm font-semibold text-slate-700 sm:col-span-2">Description<textarea className={`${inputClass} min-h-28`} name="description" placeholder="Describe fabric, fit, colour, and key details" value={form.description} onChange={change} required /></label></div></section>
+            <section><h2 className="mb-4 border-b border-slate-100 pb-3 text-lg font-semibold text-slate-900">Pricing</h2><div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3"><label className="text-sm font-semibold text-slate-700">MRP<input className={inputClass} type="number" min="0" step="0.01" name="mrp" placeholder="Enter MRP" value={form.mrp} onChange={change} required /></label><label className="text-sm font-semibold text-slate-700">Discount type<select className={inputClass} name="discount_type" value={form.discount_type} onChange={change}><option value="">No discount</option><option value="percentage">Percentage</option><option value="fixed">Fixed amount</option></select></label><label className="text-sm font-semibold text-slate-700">Discount value<input className={inputClass} type="number" min="0" step="0.01" name="discount_value" placeholder="Enter discount value" value={form.discount_value} onChange={change} disabled={!form.discount_type} /></label></div><div className="mt-5 rounded-xl bg-slate-950 px-4 py-4 text-white"><span className="text-sm text-slate-300">Final price</span><strong className="ml-3 text-xl">Rs. {finalPrice.toFixed(2)}</strong></div></section>
+            <section><h2 className="mb-4 border-b border-slate-100 pb-3 text-lg font-semibold text-slate-900">Inventory & dress sizes</h2><div className="grid gap-5 sm:grid-cols-2"><label className="text-sm font-semibold text-slate-700">Stock quantity<input className={inputClass} type="number" min="0" step="1" name="stock" placeholder="Enter available quantity" value={form.stock} onChange={change} required /></label><label className="text-sm font-semibold text-slate-700">Stock status<select className={inputClass} name="stock_status" value={form.stock_status} onChange={change} required><option value="">Select status</option><option>In Stock</option><option>Low Stock</option><option>Out of Stock</option></select></label></div><fieldset className="mt-5"><legend className="text-sm font-semibold text-slate-700">Available dress sizes</legend><div className="mt-3 flex flex-wrap gap-2">{sizeOptions.map((size) => <label key={size} className={`cursor-pointer rounded-lg border px-4 py-2 text-sm font-semibold transition ${form.sizes.includes(size) ? "border-pink-500 bg-pink-600 text-white" : "border-slate-300 bg-white text-slate-700 hover:border-pink-300"}`}><input type="checkbox" checked={form.sizes.includes(size)} onChange={() => toggleSize(size)} className="sr-only" />{size}</label>)}</div><p className="mt-2 text-xs text-slate-500">Only selected sizes will be available for customers.</p></fieldset></section>
+            <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:justify-end"><button type="button" onClick={() => router.push("/vendorUser/productdetails")} className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700">Cancel</button><button type="submit" disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-lg bg-pink-600 px-5 py-3 text-sm font-semibold text-white disabled:opacity-60">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackagePlus className="h-4 w-4" />}{saving ? "Saving product..." : "Add product"}</button></div>
+          </form>
+        )}
+      </section>
+    </main>
   );
 }

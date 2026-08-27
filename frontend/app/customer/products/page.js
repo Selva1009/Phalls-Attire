@@ -12,6 +12,7 @@ import {
   hasFullCustomerAuth,
   setAuthRedirect,
 } from "@/lib/customerSession";
+import { SUPPORT_EMAIL, SUPPORT_PHONE } from "@/lib/supportContact";
 import styles from "./customer-page.module.css";
 
 const PRODUCTS_PER_PAGE = 25;
@@ -119,6 +120,13 @@ const testimonials = [
 
 const formatPrice = (value) =>
   `Rs. ${Number(value || 0).toLocaleString("en-IN")}`;
+
+const getPriceDetails = (product) => ({
+  mrp: Number(product?.mrp ?? product?.price ?? 0),
+  final: Number(product?.final_price ?? product?.price ?? 0),
+  discount: Number(product?.discount_value ?? 0),
+  discountType: product?.discount_type,
+});
 
 const buildImageUrl = (product) => {
   const productImageUrl = getProductImageSource(product);
@@ -468,7 +476,10 @@ function ProductCard({
         <div className={styles.productFooter}>
           <div>
             {/* <p className={styles.productLabel}>Starting at</p> */}
-            <p className={styles.productPrice}>{formatPrice(product.price)}</p>
+            {(() => { const prices = getPriceDetails(product); return <div className={styles.productPriceBlock}>
+              <p className={styles.productPrice}>{formatPrice(prices.final)}</p>
+              {prices.mrp > prices.final && <p className={styles.productMrp}><s>{formatPrice(prices.mrp)}</s><span>{prices.discountType === "percentage" ? `${prices.discount}% off` : `${formatPrice(prices.discount)} off`}</span></p>}
+            </div>; })()}
           </div>
           <div className={styles.productActionStack}>
             <button type="button" className={styles.productAction} onClick={() => onClick(product.id)}>
@@ -746,8 +757,8 @@ export default function ProductsPage() {
   const handleLoginSuccess = (data) => {
     setAuthOpen(false);
     clearAuthRedirect();
-    if (data.userType === "vendor-user") {
-      router.push("/vendorUser");
+    if (data.userType === "SUPER_ADMIN") {
+      router.push("/vendorUser/addproducts");
       return;
     }
     const nextRoute = pendingRoute || "/Home";
@@ -1051,16 +1062,16 @@ export default function ProductsPage() {
             <div>
               <p className={styles.footerHeading}>Contact</p>
               <div className={styles.footerList}>
-                <p>care@mplace.com</p>
-                <p>+91 90000 00000</p>
-                <p>Mon - Sat, 10:00 AM to 7:00 PM</p>
+                <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+                <p>{SUPPORT_PHONE}</p>
+                <p>Mon - Sat, 10:00 AM to 8:00 PM</p>
               </div>
             </div>
           </div>
 
           <div className={styles.socialRow}>
             <a
-              href="https://www.instagram.com/suriya_contexts?igsh=emNmdWVzMjhzOGUz"
+              href="https://www.instagram.com/phalls_attire?utm_source=qr&igsi=MW44cXdweHlsYnFqaA=="
               target="_blank"
               rel="noopener noreferrer"
               className={styles.socialChip}
@@ -1068,8 +1079,11 @@ export default function ProductsPage() {
               Instagram
             </a>
 
-            <span className={styles.socialChip}>Facebook</span>
-            <span className={styles.socialChip}>Pinterest</span>
+            <span className={styles.socialChip}>
+              <a href="https://www.facebook.com/share/1LNrTgr1sK/" target="_blank" rel="noopener noreferrer">
+                Facebook
+              </a>
+            </span>
           </div>
         </div>
       </footer>
@@ -1117,7 +1131,7 @@ export default function ProductsPage() {
               <p className={styles.quickViewBrand}>
                 {quickViewProduct.brand || quickViewProduct.seller || "Signature Collection"}
               </p>
-              <p className={styles.quickViewPrice}>{formatPrice(quickViewProduct.price)}</p>
+              {(() => { const prices = getPriceDetails(quickViewProduct); return <div className={styles.quickViewPriceBlock}><p className={styles.quickViewPrice}>{formatPrice(prices.final)}</p>{prices.mrp > prices.final && <p className={styles.quickViewMrp}><s>{formatPrice(prices.mrp)}</s><span>{prices.discountType === "percentage" ? `${prices.discount}% off` : `${formatPrice(prices.discount)} off`}</span></p>}</div>; })()}
               <p className={styles.quickViewDesc}>
                 {quickViewProduct.description || "Premium edit crafted to elevate your everyday wardrobe."}
               </p>
