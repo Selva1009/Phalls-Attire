@@ -274,21 +274,21 @@ export default function DashboardLayout({ id, children }) {
           <nav className="flex space-x-6">
             <button
               onClick={() => router.push(`/vendorUser/productcards`)}
-              className="text-[#374151] text-[14px] flex items-center gap-2 p-2 rounded-md hover:bg-blue-50 hover:text-blue-700 hover:border hover:border-blue-300 transition-colors"
+              className={`text-[14px] flex items-center gap-2 p-2 rounded-md border transition-colors ${pathname === "/vendorUser/productcards" ? "border-blue-300 bg-blue-50 text-blue-700" : "border-transparent text-[#374151] hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300"}`}
             >
               <ShoppingCart size={18} /> Product Portal
             </button>
 
             <button
               onClick={() => router.push(`/vendorUser/addproducts`)}
-              className="text-[#374151] text-[14px] flex items-center gap-2 p-2 rounded-md hover:bg-blue-50 hover:text-blue-700 hover:border hover:border-blue-300 transition-colors"
+              className={`text-[14px] flex items-center gap-2 p-2 rounded-md border transition-colors ${pathname === "/vendorUser/addproducts" ? "border-pink-300 bg-pink-50 text-pink-700" : "border-transparent text-[#374151] hover:bg-pink-50 hover:text-pink-700 hover:border-pink-300"}`}
             >
               <PackagePlus size={18} /> Add Product
             </button>
 
             <button
               onClick={() => router.push(`/vendorUser/productdetails`)}
-              className="text-[#374151] text-[14px] flex items-center gap-2 p-2 rounded-md hover:bg-blue-50 hover:text-blue-700 hover:border hover:border-blue-300 transition-colors"
+              className={`text-[14px] flex items-center gap-2 p-2 rounded-md border transition-colors ${pathname === "/vendorUser/productdetails" ? "border-blue-300 bg-blue-50 text-blue-700" : "border-transparent text-[#374151] hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300"}`}
             >
               <FileText size={18} /> Product Details
             </button>
@@ -422,7 +422,7 @@ export default function DashboardLayout({ id, children }) {
                     router.push(`/vendorUser/productcards`);
                     toggleMobileMenu();
                   }}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 w-full text-left"
+                  className={`flex items-center gap-3 p-3 rounded-lg w-full text-left ${pathname === "/vendorUser/productcards" ? "bg-blue-50 text-blue-700" : "hover:bg-gray-100"}`}
                 >
                   <ShoppingCart size={20} />
                   <span>Product Portal</span>
@@ -432,7 +432,7 @@ export default function DashboardLayout({ id, children }) {
                     router.push(`/vendorUser/addproducts`);
                     toggleMobileMenu();
                   }}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 w-full text-left"
+                  className={`flex items-center gap-3 p-3 rounded-lg w-full text-left ${pathname === "/vendorUser/addproducts" ? "bg-pink-50 text-pink-700" : "hover:bg-gray-100"}`}
                 >
                   <PackagePlus size={20} />
                   <span>Add Product</span>
@@ -442,7 +442,7 @@ export default function DashboardLayout({ id, children }) {
                     router.push(`/vendorUser/productdetails`);
                     toggleMobileMenu();
                   }}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 w-full text-left"
+                  className={`flex items-center gap-3 p-3 rounded-lg w-full text-left ${pathname === "/vendorUser/productdetails" ? "bg-blue-50 text-blue-700" : "hover:bg-gray-100"}`}
                 >
                   <FileText size={20} />
                   <span>Product Details</span>

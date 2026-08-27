@@ -8,6 +8,7 @@ let otpStore = {};
 
 // Send OTP
 router.post("/vendor-sendotp", async (req, res) => {
+  return res.status(410).json({ message: "Vendor signup is no longer available." });
   const { email } = req.body;
 
   if (!email) return res.status(400).json({ error: "Email is required" });
@@ -27,6 +28,7 @@ router.post("/vendor-sendotp", async (req, res) => {
 
 // Vendor Signup — directly into vendorusersignup
 router.post("/vendor-signup", async (req, res) => {
+  return res.status(410).json({ message: "Vendor signup is no longer available." });
   try {
     const { companyName, personName, phoneNumber, Email, otp, password } = req.body;
 

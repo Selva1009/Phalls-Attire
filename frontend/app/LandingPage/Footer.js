@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { Linkedin, Mail, PhoneCall, Sparkles } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { SUPPORT_EMAIL, SUPPORT_PHONE } from "@/lib/supportContact";
 
 export default function Footer() {
   const pathname = usePathname();
@@ -123,11 +124,11 @@ export default function Footer() {
           <div className="mt-4 space-y-2 text-sm text-[#c8c9d6]">
             <div className="flex items-start gap-2">
               <Mail className="h-4 w-4 text-[#ffb3c7]" />
-              <span className="min-w-0 break-words">support@phalls.com</span>
+              <span className="min-w-0 break-words">{SUPPORT_EMAIL}</span>
             </div>
             <div className="flex items-start gap-2">
               <PhoneCall className="h-4 w-4 text-[#ffb3c7]" />
-              <span className="min-w-0 break-words">+91 90000 00000</span>
+              <span className="min-w-0 break-words">{SUPPORT_PHONE}</span>
             </div>
             <p className="text-xs text-[#9b9db0]">9:00 AM – 9:00 PM IST</p>
           </div>

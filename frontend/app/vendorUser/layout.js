@@ -14,7 +14,8 @@ export default function VendorDashboardLayout({ children }) {
 
     const storedVendorUser = localStorage.getItem("vendorUser");
 
-    if (!storedVendorUser) {
+    const storedUserType = localStorage.getItem("userType");
+    if (!storedVendorUser || storedUserType !== "SUPER_ADMIN") {
       console.warn("Vendor user not found in localStorage. Redirecting to SignIn...");
       router.replace("/Home");
       return;

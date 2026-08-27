@@ -224,6 +224,10 @@ const Navbar = ({
 
     if (result.isConfirmed) {
       localStorage.clear();
+      setCustomerUser(null);
+      setCartCount(0);
+      setWishlistCount(0);
+      setDropdownOpen(false);
       clearSignupSession();
       await showLogoutSuccess("You have been signed out successfully.");
       router.push("/Home");

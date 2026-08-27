@@ -5,8 +5,11 @@ const path = require("path");
 const fs = require("fs");
 const { requireFields } = require("../utils/validation");
 const { UPLOADS_DIR, ensureUploadsDir } = require("../utils/uploads");
+const authenticate = require("../utils/auth");
+const { requireSuperAdmin } = authenticate;
 
 const router = express.Router();
+router.use(authenticate, requireSuperAdmin);
 
 const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"]);
 
@@ -38,7 +41,7 @@ router.put("/product/:id", upload.single("productImage"), async (req, res) => {
   }
 
   try {
-    const { price, description, hsn_code, stock_status } = req.body;
+    const { price, selling_price, mrp, discount_type, discount_value, description, hsn_code, stock_status, stock, status, subcategory, sizes } = req.body;
 
     if (!requireFields(res, { id: req.params.id })) {
       return;
@@ -58,12 +61,27 @@ router.put("/product/:id", upload.single("productImage"), async (req, res) => {
       productImage = req.file.filename;
     }
 
+    const basePrice = Number(selling_price ?? price ?? existingProduct[0].selling_price ?? existingProduct[0].price);
+    const mrpValue = mrp ?? existingProduct[0].mrp ?? basePrice;
+    const discount = Number(discount_value || 0);
+    const discountType = String(discount_type ?? existingProduct[0].discount_type ?? "").toLowerCase();
+    if (!Number.isFinite(basePrice) || basePrice < 0 || Number(mrpValue) < basePrice || discount < 0 || (discountType === "percentage" && discount > 100) || (discountType === "fixed" && discount > basePrice)) {
+      return res.status(400).json({ message: "Invalid product pricing." });
+    }
+    const finalPrice = Number(Math.max(0, basePrice - (discountType === "percentage" ? basePrice * discount / 100 : discount)).toFixed(2));
+
     const [updateResult] = await db.execute(
       `UPDATE products
-       SET price = ?, description = ?, productImage = ?, hsn_code = ?, stock_status = ?
+       SET price = ?, mrp = ?, selling_price = ?, discount_type = ?, discount_value = ?,
+           final_price = ?, subcategory = ?, stock = ?, sizes = ?, status = ?, description = ?,
+           productImage = ?, hsn_code = ?, stock_status = ?
        WHERE id = ?`,
       [
-        price ?? existingProduct[0].price,
+        finalPrice, Number(mrpValue), basePrice, discountType || null, discount,
+        finalPrice, subcategory ?? existingProduct[0].subcategory,
+        stock === undefined ? existingProduct[0].stock : Number.parseInt(stock, 10),
+        sizes ?? existingProduct[0].sizes,
+        status ?? existingProduct[0].status,
         description ?? existingProduct[0].description,
         productImage,
         hsn_code ?? existingProduct[0].hsn_code,

@@ -336,6 +336,99 @@
   margin: 0;
 }
 
+.backButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.backButton:hover { color: var(--rose); }
+
+.priceBlock {
+  display: grid;
+  gap: 6px;
+}
+
+.originalPriceRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.originalPriceRow span {
+  color: #218653;
+  font-weight: 600;
+}
+
+.originalPriceRow strong {
+  color: var(--ink-mid);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sellingPrice {
+  margin: 0;
+  color: var(--ink-mid);
+  font-size: 14px;
+}
+
+.sizePicker {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.sizeLegend {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-mid);
+}
+
+.sizeOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.sizeButton {
+  min-width: 44px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid rgba(192, 84, 122, 0.35);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink-mid);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sizeButtonSelected {
+  border-color: var(--rose);
+  background: var(--rose);
+  color: #fff;
+}
+
+.sizeButtonDisabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+  text-decoration: line-through;
+}
+
 .description {
   font-size: 13px;
   line-height: 1.7;

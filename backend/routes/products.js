@@ -8,8 +8,47 @@ const XLSX = require("xlsx");
 const { v4: uuidv4 } = require("uuid");
 const { requireFields } = require("../utils/validation");
 const { UPLOADS_DIR, ensureUploadsDir } = require("../utils/uploads");
+const authenticate = require("../utils/auth");
+const { requireSuperAdmin } = authenticate;
 
 const router = express.Router();
+
+router.use((req, res, next) => {
+  if (req.path === "/customer-products" && req.method === "POST") return next();
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
+    return authenticate(req, res, () => requireSuperAdmin(req, res, next));
+  }
+  return next();
+});
+
+const parsePricing = (body, existing = {}) => {
+  const base = Number(body.selling_price ?? body.sellingPrice ?? body.price ?? existing.selling_price ?? existing.price);
+  const mrpValue = body.mrp ?? existing.mrp;
+  const mrp = mrpValue === undefined || mrpValue === "" ? null : Number(mrpValue);
+  const discountType = String(body.discount_type ?? body.discountType ?? existing.discount_type ?? "").toLowerCase();
+  const discountValue = body.discount_value ?? body.discountValue ?? existing.discount_value ?? 0;
+  const discount = Number(discountValue || 0);
+
+  if (!Number.isFinite(base) || base < 0 || (mrp !== null && (!Number.isFinite(mrp) || mrp < 0))) {
+    throw new Error("Price and MRP must be valid non-negative numbers.");
+  }
+  if (mrp !== null && base > mrp) throw new Error("Selling price cannot exceed MRP.");
+  if (discountType && !["percentage", "fixed"].includes(discountType)) {
+    throw new Error("Discount type must be percentage or fixed.");
+  }
+  if (!Number.isFinite(discount) || discount < 0) throw new Error("Discount value must be non-negative.");
+  if (discountType === "percentage" && discount > 100) throw new Error("Percentage discount cannot exceed 100.");
+  if (discountType === "fixed" && discount > base) throw new Error("Fixed discount cannot exceed MRP.");
+
+  const finalPrice = Math.max(0, base - (discountType === "percentage" ? base * discount / 100 : discount));
+  return {
+    mrp: mrp === null ? base : mrp,
+    sellingPrice: Number(base.toFixed(2)),
+    discountType: discountType || null,
+    discountValue: Number(discount.toFixed(2)),
+    finalPrice: Number(finalPrice.toFixed(2)),
+  };
+};
 
 const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"]);
 const IMAGE_MIME_TYPES = {
@@ -421,13 +460,17 @@ const parseBulkFile = (filePath) => {
 };
 
 // Add Product
-router.post("/add-product", upload.single("productImage"), async (req, res) => {
+router.post("/add-product", upload.fields([
+  { name: "productImage", maxCount: 1 },
+  { name: "productImages", maxCount: 10 },
+]), async (req, res) => {
   if (req.uploadValidationError) {
     return res.status(400).json({ message: req.uploadValidationError });
   }
 
-  const { vendor_user_id, productName, brand, category, price, description, hsn_code, stock_status } = req.body;
-  const productImage = req.file ? req.file.filename : null;
+  const { vendor_user_id, productName, brand, category, description, hsn_code, stock_status, stock, subcategory, status, sizes } = req.body;
+  const imageFiles = [...(req.files?.productImages || []), ...(req.files?.productImage || [])];
+  const productImage = imageFiles[0]?.filename || null;
 
   if (
     !requireFields(res, {
@@ -435,7 +478,7 @@ router.post("/add-product", upload.single("productImage"), async (req, res) => {
       productName,
       brand,
       category,
-      price,
+      price: req.body.selling_price ?? req.body.sellingPrice ?? req.body.price,
       description,
     })
   ) {
@@ -443,6 +486,7 @@ router.post("/add-product", upload.single("productImage"), async (req, res) => {
   }
 
   try {
+    const pricing = parsePricing(req.body);
     const [userResult] = await db.query(
       "SELECT companyName FROM vendorusersignup WHERE id = ?",
       [vendor_user_id]
@@ -455,9 +499,16 @@ router.post("/add-product", upload.single("productImage"), async (req, res) => {
     const companyName = userResult[0].companyName;
 
     const [insertResult] = await db.query(
-      `INSERT INTO products (vendor_id, productName, brand, category, price, seller, productImage, description, hsn_code, stock_status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [vendor_user_id, productName, brand, category, price, companyName, productImage, description, hsn_code || null, stock_status || null]
+      `INSERT INTO products
+       (vendor_id, productName, brand, category, subcategory, price, mrp, selling_price,
+        discount_type, discount_value, final_price, stock, sizes, seller, productImage, product_images,
+        description, hsn_code, stock_status, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [vendor_user_id, productName, brand, category, subcategory || null, pricing.finalPrice,
+        pricing.mrp, pricing.sellingPrice, pricing.discountType, pricing.discountValue,
+        pricing.finalPrice, Number.parseInt(stock || "0", 10), sizes || null, companyName, productImage,
+        JSON.stringify(imageFiles.map((file) => file.filename)), description, hsn_code || null,
+        stock_status || null, status || "active"]
     );
     if (!insertResult.affectedRows) {
       return res.status(500).json({ message: "Failed to add product" });
@@ -468,7 +519,13 @@ router.post("/add-product", upload.single("productImage"), async (req, res) => {
       productId: insertResult.insertId,
     });
   } catch (error) {
-    console.error("Server error", { code: error.code, errno: error.errno });
+    if (error.message.includes("Price") || error.message.includes("discount") || error.message.includes("Discount") || error.message.includes("MRP") || error.message.includes("Selling")) {
+      return res.status(400).json({ message: error.message });
+    }
+    console.error("Server error", { code: error.code, errno: error.errno, message: error.message });
+    if (error.code === "ER_BAD_FIELD_ERROR") {
+      return res.status(500).json({ message: "Product database columns are not up to date. Run npm run seed:super-admins once, then retry." });
+    }
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -776,13 +833,16 @@ router.get("/get-product/:id", async (req, res) => {
 });
 
 // Update Product
-router.put("/update-product/:id", upload.single("productImage"), async (req, res) => {
+router.put("/update-product/:id", upload.fields([
+  { name: "productImage", maxCount: 1 },
+  { name: "productImages", maxCount: 10 },
+]), async (req, res) => {
   if (req.uploadValidationError) {
     return res.status(400).json({ message: req.uploadValidationError });
   }
 
   try {
-    const { price, description, hsn_code, stock_status } = req.body;
+    const { description, hsn_code, stock_status, stock, subcategory, status, sizes } = req.body;
 
     if (!requireFields(res, { id: req.params.id })) {
       return;
@@ -796,20 +856,34 @@ router.put("/update-product/:id", upload.single("productImage"), async (req, res
       return res.status(404).json({ message: "Product not found!" });
     }
 
+    const imageFiles = [...(req.files?.productImages || []), ...(req.files?.productImage || [])];
     let productImage = existingProduct[0].productImage;
-    if (req.file) {
+    if (imageFiles[0]) {
       if (productImage) fs.unlinkSync(path.join(UPLOADS_DIR, productImage));
-      productImage = req.file.filename;
+      productImage = imageFiles[0].filename;
     }
+    const pricing = parsePricing(req.body, existingProduct[0]);
 
     const [updateResult] = await db.execute(
       `UPDATE products
-       SET price = ?, description = ?, productImage = ?, hsn_code = ?, stock_status = ?
+       SET price = ?, mrp = ?, selling_price = ?, discount_type = ?, discount_value = ?,
+           final_price = ?, subcategory = ?, stock = ?, sizes = ?, status = ?, description = ?,
+           productImage = ?, product_images = ?, hsn_code = ?, stock_status = ?
        WHERE id = ?`,
       [
-        price ?? existingProduct[0].price,
+        pricing.finalPrice,
+        pricing.mrp,
+        pricing.sellingPrice,
+        pricing.discountType,
+        pricing.discountValue,
+        pricing.finalPrice,
+        subcategory ?? existingProduct[0].subcategory,
+        stock === undefined || stock === "" ? existingProduct[0].stock : Number.parseInt(stock, 10),
+        sizes ?? existingProduct[0].sizes,
+        status ?? existingProduct[0].status,
         description ?? existingProduct[0].description,
         productImage,
+        imageFiles.length ? JSON.stringify(imageFiles.map((file) => file.filename)) : existingProduct[0].product_images,
         hsn_code ?? existingProduct[0].hsn_code,
         stock_status ?? existingProduct[0].stock_status,
         req.params.id,

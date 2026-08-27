@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FaSearch, FaEdit } from "react-icons/fa";
 import { Trash2, Loader2, Edit } from "lucide-react";
-import { ChevronRight, ChevronLeft } from 'lucide-react';
+import { ArrowLeft, ChevronRight, ChevronLeft } from 'lucide-react';
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Swal from "sweetalert2";
@@ -202,11 +202,14 @@ export default function ProductDetails() {
   }
 
   return (
-    <div className="p-6 bg-gray-100 min-h-screen">
+    <div className="p-6 pt-28 bg-gray-100 min-h-screen">
       <ToastContainer position="top-right" autoClose={ 5000 } />
 
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-        <h2 className="text-2xl font-semibold text-gray-800">Your Products</h2>
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={() => router.back()} className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"><ArrowLeft size={16} /> Back</button>
+          <h2 className="text-2xl font-semibold text-gray-800">Your Products</h2>
+        </div>
         <div className="relative w-full md:w-[350px]">
           <input
             type="text"

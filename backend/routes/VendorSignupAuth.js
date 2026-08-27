@@ -9,7 +9,7 @@ let otpStore = {}; // Stores OTPs with expiration
 
 // OTP Generation for Vendor
 router.post("/vendor-sendotp", async (req, res) => {
-  console.log("Received Request Body:", req.body);
+  return res.status(410).json({ message: "Vendor signup is no longer available." });
 
   const { email } = req.body;
 
@@ -36,6 +36,7 @@ router.post("/vendor-sendotp", async (req, res) => {
 
 // Vendor Signup
 router.post("/vendor-signup", async (req, res) => {
+  return res.status(410).json({ message: "Vendor signup is no longer available." });
   console.log(req.body);
   try {
     const { 

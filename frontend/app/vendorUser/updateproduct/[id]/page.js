@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Swal from "sweetalert2";
 import { IoCreateOutline } from "react-icons/io5";
+import Button from "@mui/material/Button";
+import ArrowBack from "@mui/icons-material/ArrowBack";
 
 export default function UpdateProduct() {
   const { id } = useParams(); // ✅ fixed
@@ -131,7 +133,8 @@ export default function UpdateProduct() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto bg-white p-6 rounded-xl shadow-lg mt-8 font-sans">
+    <div className="max-w-3xl mx-auto bg-white p-6 rounded-xl shadow-lg mt-28 font-sans">
+      <Button type="button" onClick={() => router.back()} startIcon={<ArrowBack />} sx={{ mb: 1, textTransform: "none" }}>Back</Button>
       <h2 className="text-lg font-bold text-black mb-4 text-left flex items-center gap-2">
         <IoCreateOutline size={ 25 } /> Update Product
       </h2>

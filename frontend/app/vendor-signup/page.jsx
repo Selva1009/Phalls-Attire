@@ -1,4 +1,10 @@
-"use client";
+import { redirect } from "next/navigation";
+
+export default function VendorSignup() {
+  redirect("/Home");
+}
+
+/*
 import { API_BASE_URL } from "@/lib/api";
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -233,4 +239,5 @@ const VendorSignup = () => {
 };
 
 export default VendorSignup;
+*/
 

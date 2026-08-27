@@ -16,7 +16,7 @@ router.get("/:customerId", async (req, res) => {
 
   try {
     const query = `
-      SELECT cart.id, cart.product_id, cart.quantity, products.productName, products.price, products.productImage, products.vendor_id
+      SELECT cart.id, cart.product_id, cart.quantity, cart.size, products.productName, products.price, products.mrp, products.final_price, products.sizes, products.productImage, products.vendor_id
       FROM cart
       JOIN products ON cart.product_id = products.id
       WHERE cart.customer_id = ?
@@ -31,7 +31,7 @@ router.get("/:customerId", async (req, res) => {
 
 // Add item to cart 
 router.post("/add", async (req, res) => {
-  const { customerId, productId, quantity } = req.body;
+  const { customerId, productId, quantity, size } = req.body;
   const resolvedCustomerId = Number(req.user.id);
 
   if (!requireFields(res, { productId, quantity })) {
@@ -45,8 +45,8 @@ router.post("/add", async (req, res) => {
   try {
     // Check if product exists in cart
     const [existingItem] = await db.query(
-      "SELECT * FROM cart WHERE customer_id = ? AND product_id = ?",
-      [resolvedCustomerId, productId]
+      "SELECT * FROM cart WHERE customer_id = ? AND product_id = ? AND (size = ? OR (size IS NULL AND ? IS NULL))",
+      [resolvedCustomerId, productId, size || null, size || null]
     );
 
     if (existingItem.length > 0) {
@@ -63,8 +63,8 @@ router.post("/add", async (req, res) => {
 
     // Insert new item
     const [insertResult] = await db.query(
-      "INSERT INTO cart (customer_id, product_id, quantity) VALUES (?, ?, ?)",
-      [resolvedCustomerId, productId, quantity]
+      "INSERT INTO cart (customer_id, product_id, quantity, size) VALUES (?, ?, ?, ?)",
+      [resolvedCustomerId, productId, quantity, size || null]
     );
     if (!insertResult.affectedRows) {
       return res.status(500).json({ success: false, message: "Failed to add item" });

@@ -16,6 +16,7 @@ import { toast, ToastContainer } from "react-toastify";
 import Navbar from "../components/Navbar";
 import styles from "./orders-page.module.css";
 import NeedHelpModal from "../../Components/NeedHelpModal";
+import { SUPPORT_EMAIL, SUPPORT_PHONE } from "@/lib/supportContact";
 
 const ACTIVE_STATUSES = ["pending", "processing", "approved", "shipped"];
 const HISTORY_STATUSES = [
@@ -296,8 +297,8 @@ export default function OrdersPage({ variant = "orders" }) {
   const [cancelling, setCancelling] = useState({});
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [helpOrder, setHelpOrder] = useState(null);
-  const supportEmail = "phalls.attire@gmail.com";
-  const supportPhone = "+91 7502579670";
+  const supportEmail = SUPPORT_EMAIL;
+  const supportPhone = SUPPORT_PHONE;
 
   useEffect(() => {
     const fetchOrders = async () => {

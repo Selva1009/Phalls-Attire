@@ -3,14 +3,15 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { Mail, Phone, MessageCircle, AtSign, X } from "lucide-react";
 import styles from "./NeedHelpModal.module.css";
+import { SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_DIGITS } from "@/lib/supportContact";
 
 export default function NeedHelpModal({
   open,
   onClose,
   title = "What help do you need?",
   description = "Contact our support team for assistance.",
-  email,
-  phone,
+  email = SUPPORT_EMAIL,
+  phone = SUPPORT_PHONE,
   orderNumber,
 }) {
   useEffect(() => {
@@ -28,8 +29,8 @@ export default function NeedHelpModal({
   }, [open, onClose]);
 
   const computed = useMemo(() => {
-    const normalizedPhone = String(phone || "").replace(/[\\s()-]/g, "");
-    const phoneDigits = normalizedPhone.replace(/\\D/g, "");
+    const normalizedPhone = String(phone || SUPPORT_PHONE).replace(/[\\s()-]/g, "");
+    const phoneDigits = normalizedPhone.replace(/\\D/g, "") || SUPPORT_PHONE_DIGITS;
     const orderSuffix = orderNumber ? ` - Order ${orderNumber}` : "";
     const subject = `Support Request${orderSuffix}`;
     const baseBody = [

@@ -12,7 +12,11 @@ const authenticate = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = { id: decoded.id, userType: decoded.userType };
+    req.user = {
+      id: decoded.id,
+      userType: decoded.userType,
+      role: decoded.role || decoded.userType,
+    };
     return next();
   } catch (error) {
     return res.status(401).json({ message: "Invalid token" });
@@ -20,5 +24,12 @@ const authenticate = (req, res, next) => {
 };
 
 module.exports = authenticate;
+
+module.exports.requireSuperAdmin = (req, res, next) => {
+  if (!req.user || req.user.role !== "SUPER_ADMIN") {
+    return res.status(403).json({ message: "SUPER_ADMIN access required" });
+  }
+  return next();
+};
 
 

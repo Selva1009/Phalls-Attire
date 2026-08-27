@@ -14,6 +14,8 @@ import {
   hasFullCustomerAuth,
   setAuthRedirect,
 } from "@/lib/customerSession";
+import Button from "@mui/material/Button";
+import ArrowBack from "@mui/icons-material/ArrowBack";
 
 const buildImageUrl = (product, cacheKey = "") => {
   const imageUrl = getProductImageSource(product, cacheKey);
@@ -23,6 +25,20 @@ const buildImageUrl = (product, cacheKey = "") => {
     return isFallback ? product?.localImage || "/CordSet1 (21).jpeg" : "/notfound.jpg";
   }
   return imageUrl;
+};
+
+const sizeOptions = ["XS", "S", "M", "L", "XL", "XXL"];
+
+const parseProductSizes = (value) => {
+  if (Array.isArray(value)) return value.map((size) => String(size).trim().toUpperCase()).filter(Boolean);
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) return parsed.map((size) => String(size).trim().toUpperCase()).filter(Boolean);
+  } catch {
+    // Older products may store sizes as a comma-separated value.
+  }
+  return String(value).split(",").map((size) => size.trim().toUpperCase()).filter(Boolean);
 };
 
 const ProductDetail = () => {
@@ -42,6 +58,7 @@ const ProductDetail = () => {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [selectedSize, setSelectedSize] = useState("");
   const suggestTrackRef = useRef(null);
   const imageCacheBuster = useMemo(() => Date.now(), []);
 
@@ -188,10 +205,22 @@ const ProductDetail = () => {
   }, [categorySuggestions, product]);
 
   const displayedProduct = imageSlides[activeImageIndex] || product;
+  const availableSizes = useMemo(() => parseProductSizes(displayedProduct?.sizes), [displayedProduct?.sizes]);
+  const detailPrices = useMemo(() => {
+    const mrp = Number(displayedProduct?.mrp ?? displayedProduct?.price ?? 0);
+    const final = Number(displayedProduct?.final_price ?? displayedProduct?.price ?? 0);
+    const discount = Number(displayedProduct?.discount_value ?? 0);
+    return { mrp, final, discount, type: displayedProduct?.discount_type };
+  }, [displayedProduct]);
 
   useEffect(() => {
     setActiveImageIndex(0);
+    setSelectedSize("");
   }, [product?.id]);
+
+  useEffect(() => {
+    if (selectedSize && availableSizes.length && !availableSizes.includes(selectedSize)) setSelectedSize("");
+  }, [availableSizes, selectedSize]);
 
   useEffect(() => {
     if (!imageSlides.length) return;
@@ -261,8 +290,8 @@ const ProductDetail = () => {
   const handleLoginSuccess = (data) => {
     setAuthOpen(false);
     clearAuthRedirect();
-    if (data.userType === "vendor-user") {
-      router.push("/vendorUser");
+    if (data.userType === "SUPER_ADMIN") {
+      router.push("/vendorUser/addproducts");
       return;
     }
     const nextRoute = pendingRoute;
@@ -289,8 +318,12 @@ const ProductDetail = () => {
       openAuthModal("signup");
       return;
     }
+    if (availableSizes.length && !selectedSize) {
+      toast.error("Please select a dress size.", { position: "top-right", autoClose: 1800 });
+      return;
+    }
     try {
-      const cartItem = { customerId, productId: targetProduct.id, quantity: 1 };
+      const cartItem = { customerId, productId: targetProduct.id, quantity: 1, size: selectedSize || null };
       const response = await fetch(`${API_BASE_URL}/api/cart/add`, {
         method: "POST",
         headers: {
@@ -305,7 +338,7 @@ const ProductDetail = () => {
       }
       const data = await response.json();
       if (data.success) {
-        const newCart = [...cart, { ...targetProduct, quantity: 1 }];
+        const newCart = [...cart, { ...targetProduct, quantity: 1, size: selectedSize || null }];
         setCart(newCart);
         localStorage.setItem(`cart_${customerId}`, JSON.stringify(newCart));
         window.dispatchEvent(new Event("storage"));
@@ -443,7 +476,9 @@ const ProductDetail = () => {
 
           {/* Right: info */}
           <div className={styles.infoSide}>
-            <div className={styles.infoInner}>
+              <div className={styles.infoInner}>
+
+              <Button type="button" onClick={() => router.back()} startIcon={<ArrowBack />} sx={{ alignSelf: "flex-start", mb: 1, color: "var(--ink-soft)", textTransform: "none" }}>Back to products</Button>
 
               <p className={styles.overline}>
                 {displayedProduct?.brand || "Phalls"} &nbsp;/&nbsp; {displayedProduct?.seller || "Premium Partner"}
@@ -453,13 +488,31 @@ const ProductDetail = () => {
 
               <div className={styles.dividerLine} />
 
-              <p className={styles.price}>
-                Rs. {Number(displayedProduct?.price || 0).toLocaleString("en-IN")}
-              </p>
+              <div className={styles.priceBlock}>
+                <p className={styles.price}>Rs. {detailPrices.final.toLocaleString("en-IN")}</p>
+                {detailPrices.mrp > detailPrices.final && (
+                  <div className={styles.originalPriceRow}>
+                    <s>Rs. {detailPrices.mrp.toLocaleString("en-IN")}</s>
+                    <span>{detailPrices.type === "percentage" ? `${detailPrices.discount}% off` : `Rs. ${detailPrices.discount.toLocaleString("en-IN")} off`}</span>
+                  </div>
+                )}
+              </div>
 
               <p className={styles.description}>
                 {displayedProduct?.description || "A premium dress edit crafted for the modern woman."}
               </p>
+
+              {availableSizes.length > 0 && (
+                <fieldset className={styles.sizePicker}>
+                  <legend className={styles.sizeLegend}>Select size</legend>
+                  <div className={styles.sizeOptions}>
+                    {sizeOptions.map((size) => {
+                      const available = availableSizes.includes(size);
+                      return <button key={size} type="button" disabled={!available} aria-pressed={selectedSize === size} className={`${styles.sizeButton} ${selectedSize === size ? styles.sizeButtonSelected : ""} ${!available ? styles.sizeButtonDisabled : ""}`} onClick={() => setSelectedSize(size)}>{size}</button>;
+                    })}
+                  </div>
+                </fieldset>
+              )}
 
               <div className={styles.metaList}>
                 <div className={styles.metaItem}>

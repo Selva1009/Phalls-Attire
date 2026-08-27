@@ -20,6 +20,16 @@ import Navbar from "../components/Navbar";
 const formatPrice = (value) =>
   `Rs. ${Number(value || 0).toLocaleString("en-IN")}`;
 
+const parseSizes = (value) => {
+  if (Array.isArray(value)) return value.map((size) => String(size).trim().toUpperCase()).filter(Boolean);
+  try {
+    const parsed = JSON.parse(value || "[]");
+    return Array.isArray(parsed) ? parsed.map((size) => String(size).trim().toUpperCase()).filter(Boolean) : [];
+  } catch {
+    return String(value || "").split(",").map((size) => size.trim().toUpperCase()).filter(Boolean);
+  }
+};
+
 const getAuthHeader = () => ({
   Authorization: `Bearer ${localStorage.getItem("token")}`,
 });
@@ -313,7 +323,9 @@ const CartPage = () => {
     const sizeMap = {};
     items.forEach((item) => {
       qtyMap[item.id] = Number(item.quantity || 1);
-      sizeMap[item.id] = sizeOptions.includes(item.size) ? item.size : "M";
+      const available = parseSizes(item.sizes);
+      const savedSize = String(item.size || "").trim().toUpperCase();
+      sizeMap[item.id] = sizeOptions.includes(savedSize) && (!available.length || available.includes(savedSize)) ? savedSize : (available[0] || "M");
     });
     setCheckoutItems(items);
     setCheckoutQuantities(qtyMap);
@@ -578,7 +590,7 @@ const CartPage = () => {
                   />
                   <div className="cart-checkout-info">
                     <p className="cart-checkout-name">{item.productName}</p>
-                    <p className="cart-checkout-price">{formatPrice(item.price)}</p>
+                    <p className="cart-checkout-price">{formatPrice(item.final_price ?? item.price)}</p>
 
                     <div className="cart-checkout-row">
                       <span>Size</span>
@@ -590,6 +602,7 @@ const CartPage = () => {
                             className={`cart-size-chip ${
                               checkoutSizes[item.id] === size ? "active" : ""
                             }`}
+                            disabled={parseSizes(item.sizes).length > 0 && !parseSizes(item.sizes).includes(size)}
                             onClick={() => updateCheckoutSize(item.id, size)}
                           >
                             {size}
