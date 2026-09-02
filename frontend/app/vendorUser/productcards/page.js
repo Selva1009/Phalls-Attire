@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { FaSearch } from "react-icons/fa";
 import { Pencil, Trash2 } from "lucide-react";
 
+const formatPrice = (value) => `Rs. ${Number(value || 0).toLocaleString("en-IN")}`;
+
 export default function EcommercePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -392,7 +394,7 @@ export default function EcommercePage() {
                     </h3>
                     <p className="text-md text-gray-600">{product.brand}</p>
                     <p className="text-xl font-bold text-black mt-2">
-                      ₹{product.price}
+                      {formatPrice(product.final_price ?? product.price)}
                     </p>
                   </div>
                 </div>

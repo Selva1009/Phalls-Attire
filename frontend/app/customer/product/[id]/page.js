@@ -30,15 +30,27 @@ const buildImageUrl = (product, cacheKey = "") => {
 const sizeOptions = ["XS", "S", "M", "L", "XL", "XXL"];
 
 const parseProductSizes = (value) => {
-  if (Array.isArray(value)) return value.map((size) => String(size).trim().toUpperCase()).filter(Boolean);
+  if (Array.isArray(value)) return value.map((item) => typeof item === "object" ? String(item.size || "").trim().toUpperCase() : String(item).trim().toUpperCase()).filter(Boolean);
   if (!value) return [];
   try {
     const parsed = JSON.parse(value);
-    if (Array.isArray(parsed)) return parsed.map((size) => String(size).trim().toUpperCase()).filter(Boolean);
+    if (Array.isArray(parsed)) return parsed.map((item) => typeof item === "object" ? String(item.size || "").trim().toUpperCase() : String(item).trim().toUpperCase()).filter(Boolean);
   } catch {
     // Older products may store sizes as a comma-separated value.
   }
   return String(value).split(",").map((size) => size.trim().toUpperCase()).filter(Boolean);
+};
+
+const parseProductSizeStock = (value) => {
+  try {
+    const parsed = Array.isArray(value) ? value : JSON.parse(value || "[]");
+    return parsed.reduce((acc, item) => {
+      if (typeof item === "object" && item?.size) acc[String(item.size).trim().toUpperCase()] = Number(item.quantity || 0);
+      return acc;
+    }, {});
+  } catch {
+    return {};
+  }
 };
 
 const ProductDetail = () => {
@@ -206,6 +218,7 @@ const ProductDetail = () => {
 
   const displayedProduct = imageSlides[activeImageIndex] || product;
   const availableSizes = useMemo(() => parseProductSizes(displayedProduct?.sizes), [displayedProduct?.sizes]);
+  const sizeStock = useMemo(() => parseProductSizeStock(displayedProduct?.sizes), [displayedProduct?.sizes]);
   const detailPrices = useMemo(() => {
     const mrp = Number(displayedProduct?.mrp ?? displayedProduct?.price ?? 0);
     const final = Number(displayedProduct?.final_price ?? displayedProduct?.price ?? 0);
@@ -291,7 +304,7 @@ const ProductDetail = () => {
     setAuthOpen(false);
     clearAuthRedirect();
     if (data.userType === "SUPER_ADMIN") {
-      router.push("/vendorUser/addproducts");
+      router.push("/vendorUser/productcards");
       return;
     }
     const nextRoute = pendingRoute;
@@ -508,7 +521,8 @@ const ProductDetail = () => {
                   <div className={styles.sizeOptions}>
                     {sizeOptions.map((size) => {
                       const available = availableSizes.includes(size);
-                      return <button key={size} type="button" disabled={!available} aria-pressed={selectedSize === size} className={`${styles.sizeButton} ${selectedSize === size ? styles.sizeButtonSelected : ""} ${!available ? styles.sizeButtonDisabled : ""}`} onClick={() => setSelectedSize(size)}>{size}</button>;
+                      const quantity = sizeStock[size];
+                      return <button key={size} type="button" disabled={!available || quantity === 0} aria-pressed={selectedSize === size} className={`${styles.sizeButton} ${selectedSize === size ? styles.sizeButtonSelected : ""} ${!available || quantity === 0 ? styles.sizeButtonDisabled : ""}`} onClick={() => setSelectedSize(size)}>{size}{quantity !== undefined && <span className="block text-[10px] font-medium">{quantity} left</span>}</button>;
                     })}
                   </div>
                 </fieldset>

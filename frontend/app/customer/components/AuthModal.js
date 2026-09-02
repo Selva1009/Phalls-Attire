@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Eye, EyeOff, X } from "lucide-react";
 import Swal from "sweetalert2";
 import { API_BASE_URL } from "@/lib/api";
@@ -19,6 +20,7 @@ export default function AuthModal({
   onLoginSuccess,
   onSignupSuccess,
 }) {
+  const router = useRouter();
   const [tab, setTab] = useState(initialTab);
   const [loading, setLoading] = useState(false);
   const [usePhoneLogin, setUsePhoneLogin] = useState(false);
@@ -58,6 +60,10 @@ export default function AuthModal({
     });
 
     if (result.isConfirmed) {
+      if (data.userType === "SUPER_ADMIN") {
+        router.push("/vendorUser/productcards");
+        return;
+      }
       onLoginSuccess?.(data);
     }
   };

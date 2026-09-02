@@ -8,6 +8,10 @@ const XLSX = require("xlsx");
 const { v4: uuidv4 } = require("uuid");
 const { requireFields } = require("../utils/validation");
 const { UPLOADS_DIR, ensureUploadsDir } = require("../utils/uploads");
+const {
+  uploadProductImageToSupabase,
+  deleteProductImageFromSupabase,
+} = require("../utils/supabaseProductImages");
 const authenticate = require("../utils/auth");
 const { requireSuperAdmin } = authenticate;
 
@@ -60,8 +64,9 @@ const IMAGE_MIME_TYPES = {
   ".avif": "image/avif",
 };
 
-const readProductImageDataUrl = async (productImage) => {
-  if (!productImage || /^https?:\/\//i.test(productImage)) return null;
+const resolveProductImage = async (productImage) => {
+  if (!productImage) return null;
+  if (/^https?:\/\//i.test(productImage)) return productImage;
 
   const imageName = path.basename(
     String(productImage)
@@ -84,6 +89,32 @@ const readProductImageDataUrl = async (productImage) => {
     }
     return null;
   }
+};
+
+const parseStoredProductImages = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+  } catch (error) {
+    return [];
+  }
+};
+
+const deleteLegacyLocalProductImage = async (productImage) => {
+  if (!productImage || /^https?:\/\//i.test(productImage)) return;
+
+  const imagePath = path.join(UPLOADS_DIR, path.basename(String(productImage)));
+  await fsp.unlink(imagePath).catch((error) => {
+    if (error.code !== "ENOENT") {
+      console.error("Local product image delete error", {
+        imagePath,
+        code: error.code,
+      });
+    }
+  });
 };
 
 const isSupportedImage = (file) => {
@@ -114,6 +145,8 @@ const storage = multer.diskStorage({
   },
 });
 
+const memoryStorage = multer.memoryStorage();
+
 const restoreStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     const restoreTempDir = path.join(ensureUploadsDir(), ".restore-temp");
@@ -125,8 +158,8 @@ const restoreStorage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage, fileFilter });
-const uploadBulk = multer({ storage, fileFilter });
+const upload = multer({ storage: memoryStorage, fileFilter });
+const uploadBulk = multer({ storage: memoryStorage, fileFilter });
 const restoreImagesUpload = multer({
   storage: restoreStorage,
   fileFilter,
@@ -227,7 +260,7 @@ const processBulkUpload = async ({ vendor_user_id, bulkFile, imageFiles, jobId }
   }
 
   const companyName = userResult[0].companyName;
-  const rows = parseBulkFile(bulkFile.path);
+  const rows = parseBulkFile(bulkFile);
 
   if (!rows.length) {
     throw new Error("No data rows found in file.");
@@ -235,10 +268,13 @@ const processBulkUpload = async ({ vendor_user_id, bulkFile, imageFiles, jobId }
 
   console.info(`${logPrefix} parsed rows=${rows.length}`);
 
-  const imageMap = new Map();
-  imageFiles.forEach((file) => {
-    imageMap.set(file.originalname.trim().toLowerCase(), file.filename);
-  });
+  const uploadedImageEntries = await Promise.all(
+    imageFiles.map(async (file) => ([
+      file.originalname.trim().toLowerCase(),
+      await uploadProductImageToSupabase(file),
+    ]))
+  );
+  const imageMap = new Map(uploadedImageEntries);
 
   const errors = [];
   let insertedCount = 0;
@@ -449,8 +485,10 @@ const canonicalizeRow = (row) => {
   };
 };
 
-const parseBulkFile = (filePath) => {
-  const workbook = XLSX.readFile(filePath, { raw: false });
+const parseBulkFile = (fileInput) => {
+  const workbook = fileInput?.buffer
+    ? XLSX.read(fileInput.buffer, { type: "buffer", raw: false })
+    : XLSX.readFile(fileInput.path, { raw: false });
   const sheetName = workbook.SheetNames[0];
   if (!sheetName) {
     return [];
@@ -470,7 +508,6 @@ router.post("/add-product", upload.fields([
 
   const { vendor_user_id, productName, brand, category, description, hsn_code, stock_status, stock, subcategory, status, sizes } = req.body;
   const imageFiles = [...(req.files?.productImages || []), ...(req.files?.productImage || [])];
-  const productImage = imageFiles[0]?.filename || null;
 
   if (
     !requireFields(res, {
@@ -486,6 +523,10 @@ router.post("/add-product", upload.fields([
   }
 
   try {
+    const uploadedImageUrls = await Promise.all(
+      imageFiles.map((file) => uploadProductImageToSupabase(file))
+    );
+    const productImage = uploadedImageUrls[0] || null;
     const pricing = parsePricing(req.body);
     const [userResult] = await db.query(
       "SELECT companyName FROM vendorusersignup WHERE id = ?",
@@ -507,7 +548,7 @@ router.post("/add-product", upload.fields([
       [vendor_user_id, productName, brand, category, subcategory || null, pricing.finalPrice,
         pricing.mrp, pricing.sellingPrice, pricing.discountType, pricing.discountValue,
         pricing.finalPrice, Number.parseInt(stock || "0", 10), sizes || null, companyName, productImage,
-        JSON.stringify(imageFiles.map((file) => file.filename)), description, hsn_code || null,
+        JSON.stringify(uploadedImageUrls), description, hsn_code || null,
         stock_status || null, status || "active"]
     );
     if (!insertResult.affectedRows) {
@@ -519,6 +560,13 @@ router.post("/add-product", upload.fields([
       productId: insertResult.insertId,
     });
   } catch (error) {
+    if (error.code === "SUPABASE_CONFIG_MISSING") {
+      return res.status(500).json({ message: "Supabase storage is not configured on the server." });
+    }
+    if (error.message === "Supabase image upload failed.") {
+      console.error("Supabase upload error", error.details || {});
+      return res.status(500).json({ message: "Unable to upload product images to Supabase." });
+    }
     if (error.message.includes("Price") || error.message.includes("discount") || error.message.includes("Discount") || error.message.includes("MRP") || error.message.includes("Selling")) {
       return res.status(400).json({ message: error.message });
     }
@@ -608,14 +656,15 @@ router.post(
 
     const imageFiles = (req.files?.images || []).map((file) => ({
       originalname: file.originalname,
-      filename: file.filename,
+      mimetype: file.mimetype,
+      buffer: file.buffer,
     }));
 
     const jobId = enqueueBulkJob({
       vendor_user_id,
       bulkFile: {
-        path: bulkFile.path,
         originalname: bulkFile.originalname,
+        buffer: bulkFile.buffer,
       },
       imageFiles,
     });
@@ -787,7 +836,7 @@ router.post("/customer-products", async (req, res) => {
     const productsWithImages = await Promise.all(
       products.map(async (product) => ({
         ...product,
-        imageUrl: await readProductImageDataUrl(product.productImage),
+        imageUrl: await resolveProductImage(product.productImage),
       }))
     );
 
@@ -842,7 +891,7 @@ router.put("/update-product/:id", upload.fields([
   }
 
   try {
-    const { description, hsn_code, stock_status, stock, subcategory, status, sizes } = req.body;
+    const { productName, brand, category, description, hsn_code, stock_status, stock, subcategory, status, sizes } = req.body;
 
     if (!requireFields(res, { id: req.params.id })) {
       return;
@@ -859,18 +908,35 @@ router.put("/update-product/:id", upload.fields([
     const imageFiles = [...(req.files?.productImages || []), ...(req.files?.productImage || [])];
     let productImage = existingProduct[0].productImage;
     if (imageFiles[0]) {
-      if (productImage) fs.unlinkSync(path.join(UPLOADS_DIR, productImage));
-      productImage = imageFiles[0].filename;
+      const previousImages = [
+        existingProduct[0].productImage,
+        ...parseStoredProductImages(existingProduct[0].product_images),
+      ].filter(Boolean);
+      const uploadedImageUrls = await Promise.all(
+        imageFiles.map((file) => uploadProductImageToSupabase(file))
+      );
+      await Promise.all(
+        previousImages.map((image) =>
+          /^https?:\/\//i.test(String(image))
+            ? deleteProductImageFromSupabase(image)
+            : deleteLegacyLocalProductImage(image)
+        )
+      );
+      productImage = uploadedImageUrls[0];
+      req.uploadedImageUrls = uploadedImageUrls;
     }
     const pricing = parsePricing(req.body, existingProduct[0]);
 
     const [updateResult] = await db.execute(
       `UPDATE products
-       SET price = ?, mrp = ?, selling_price = ?, discount_type = ?, discount_value = ?,
+       SET productName = ?, brand = ?, category = ?, price = ?, mrp = ?, selling_price = ?, discount_type = ?, discount_value = ?,
            final_price = ?, subcategory = ?, stock = ?, sizes = ?, status = ?, description = ?,
            productImage = ?, product_images = ?, hsn_code = ?, stock_status = ?
        WHERE id = ?`,
       [
+        productName ?? existingProduct[0].productName,
+        brand ?? existingProduct[0].brand,
+        category ?? existingProduct[0].category,
         pricing.finalPrice,
         pricing.mrp,
         pricing.sellingPrice,
@@ -883,7 +949,7 @@ router.put("/update-product/:id", upload.fields([
         status ?? existingProduct[0].status,
         description ?? existingProduct[0].description,
         productImage,
-        imageFiles.length ? JSON.stringify(imageFiles.map((file) => file.filename)) : existingProduct[0].product_images,
+        imageFiles.length ? JSON.stringify(req.uploadedImageUrls || []) : existingProduct[0].product_images,
         hsn_code ?? existingProduct[0].hsn_code,
         stock_status ?? existingProduct[0].stock_status,
         req.params.id,
@@ -895,6 +961,13 @@ router.put("/update-product/:id", upload.fields([
 
     res.status(200).json({ message: "Product updated successfully!" });
   } catch (error) {
+    if (error.code === "SUPABASE_CONFIG_MISSING") {
+      return res.status(500).json({ message: "Supabase storage is not configured on the server." });
+    }
+    if (error.message === "Supabase image upload failed.") {
+      console.error("Supabase upload error", error.details || {});
+      return res.status(500).json({ message: "Unable to upload product images to Supabase." });
+    }
     console.error("Server error", { code: error.code, errno: error.errno });
     res.status(500).json({ message: "Internal Server Error" });
   }
@@ -908,7 +981,7 @@ router.delete("/delete-product/:id", async (req, res) => {
     }
 
     const [existingProduct] = await db.query(
-      "SELECT productImage FROM products WHERE id = ?",
+      "SELECT productImage, product_images FROM products WHERE id = ?",
       [req.params.id]
     );
 
@@ -916,8 +989,10 @@ router.delete("/delete-product/:id", async (req, res) => {
       return res.status(404).json({ message: "Product not found!" });
     }
 
-    const productImage = existingProduct[0].productImage;
-    const imagePath = productImage ? path.join(UPLOADS_DIR, productImage) : null;
+    const imagesToDelete = [
+      existingProduct[0].productImage,
+      ...parseStoredProductImages(existingProduct[0].product_images),
+    ].filter(Boolean);
 
     try {
       await db.query("START TRANSACTION");
@@ -945,15 +1020,13 @@ router.delete("/delete-product/:id", async (req, res) => {
       return res.status(500).json({ message: "Internal Server Error" });
     }
 
-    if (imagePath) {
-      try {
-        await fsp.unlink(imagePath);
-      } catch (error) {
-        if (error.code !== "ENOENT") {
-          console.error("Image delete error", { code: error.code, errno: error.errno });
-        }
-      }
-    }
+    await Promise.all(
+      imagesToDelete.map((image) =>
+        /^https?:\/\//i.test(String(image))
+          ? deleteProductImageFromSupabase(image)
+          : deleteLegacyLocalProductImage(image)
+      )
+    );
 
     res.status(200).json({ message: "Product deleted successfully!" });
   } catch (error) {

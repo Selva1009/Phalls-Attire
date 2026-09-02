@@ -21,10 +21,10 @@ const formatPrice = (value) =>
   `Rs. ${Number(value || 0).toLocaleString("en-IN")}`;
 
 const parseSizes = (value) => {
-  if (Array.isArray(value)) return value.map((size) => String(size).trim().toUpperCase()).filter(Boolean);
+  if (Array.isArray(value)) return value.map((item) => typeof item === "object" ? String(item.size || "").trim().toUpperCase() : String(item).trim().toUpperCase()).filter(Boolean);
   try {
     const parsed = JSON.parse(value || "[]");
-    return Array.isArray(parsed) ? parsed.map((size) => String(size).trim().toUpperCase()).filter(Boolean) : [];
+    return Array.isArray(parsed) ? parsed.map((item) => typeof item === "object" ? String(item.size || "").trim().toUpperCase() : String(item).trim().toUpperCase()).filter(Boolean) : [];
   } catch {
     return String(value || "").split(",").map((size) => size.trim().toUpperCase()).filter(Boolean);
   }

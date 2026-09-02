@@ -2,9 +2,12 @@ const express = require("express");
 const db = require("../db");
 const multer = require("multer");
 const path = require("path");
-const fs = require("fs");
 const { requireFields } = require("../utils/validation");
 const { UPLOADS_DIR, ensureUploadsDir } = require("../utils/uploads");
+const {
+  uploadProductImageToSupabase,
+  deleteProductImageFromSupabase,
+} = require("../utils/supabaseProductImages");
 const authenticate = require("../utils/auth");
 const { requireSuperAdmin } = authenticate;
 
@@ -33,7 +36,23 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage, fileFilter });
+const memoryStorage = multer.memoryStorage();
+
+const deleteLegacyLocalProductImage = async (productImage) => {
+  if (!productImage || /^https?:\/\//i.test(productImage)) return;
+
+  const imagePath = path.join(UPLOADS_DIR, path.basename(String(productImage)));
+  await require("fs").promises.unlink(imagePath).catch((error) => {
+    if (error.code !== "ENOENT") {
+      console.error("Local product image delete error", {
+        imagePath,
+        code: error.code,
+      });
+    }
+  });
+};
+
+const upload = multer({ storage: memoryStorage, fileFilter });
 
 router.put("/product/:id", upload.single("productImage"), async (req, res) => {
   if (req.uploadValidationError) {
@@ -57,8 +76,15 @@ router.put("/product/:id", upload.single("productImage"), async (req, res) => {
 
     let productImage = existingProduct[0].productImage;
     if (req.file) {
-      if (productImage) fs.unlinkSync(path.join(UPLOADS_DIR, productImage));
-      productImage = req.file.filename;
+      const uploadedImageUrl = await uploadProductImageToSupabase(req.file);
+      if (productImage) {
+        if (/^https?:\/\//i.test(String(productImage))) {
+          await deleteProductImageFromSupabase(productImage);
+        } else {
+          await deleteLegacyLocalProductImage(productImage);
+        }
+      }
+      productImage = uploadedImageUrl;
     }
 
     const basePrice = Number(selling_price ?? price ?? existingProduct[0].selling_price ?? existingProduct[0].price);
@@ -95,6 +121,13 @@ router.put("/product/:id", upload.single("productImage"), async (req, res) => {
 
     res.status(200).json({ message: "Product updated successfully!" });
   } catch (error) {
+    if (error.code === "SUPABASE_CONFIG_MISSING") {
+      return res.status(500).json({ message: "Supabase storage is not configured on the server." });
+    }
+    if (error.message === "Supabase image upload failed.") {
+      console.error("Supabase upload error", error.details || {});
+      return res.status(500).json({ message: "Unable to upload product image to Supabase." });
+    }
     console.error("Server error", { code: error.code, errno: error.errno });
     res.status(500).json({ message: "Internal Server Error" });
   }

@@ -758,7 +758,7 @@ export default function ProductsPage() {
     setAuthOpen(false);
     clearAuthRedirect();
     if (data.userType === "SUPER_ADMIN") {
-      router.push("/vendorUser/addproducts");
+      router.push("/vendorUser/productcards");
       return;
     }
     const nextRoute = pendingRoute || "/Home";

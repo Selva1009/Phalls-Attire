@@ -11,6 +11,8 @@ import "react-toastify/dist/ReactToastify.css";
 import Swal from "sweetalert2";
 import { Button } from '@/components/ui/button';
 
+const formatPrice = (value) => `Rs. ${Number(value || 0).toLocaleString("en-IN")}`;
+
 export default function ProductDetails() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -257,7 +259,7 @@ export default function ProductDetails() {
                     <td className="px-4 py-4 text-sm font-medium text-gray-900">{ product.productName }</td>
                     <td className="px-4 py-4 hidden sm:table-cell text-sm text-gray-500">{ product.brand }</td>
                     <td className="px-4 py-4 hidden md:table-cell text-sm text-gray-500">{ product.category }</td>
-                    <td className="px-4 py-4 text-sm text-gray-900">Rs. { product.price }</td>
+                    <td className="px-4 py-4 text-sm text-gray-900">{ formatPrice(product.final_price ?? product.price) }</td>
                     <td className="px-4 py-4 hidden lg:table-cell text-sm text-gray-500">{ product.seller }</td>
                     <td className="px-4 py-4 text-sm font-medium">
                       <div className="flex space-x-2">

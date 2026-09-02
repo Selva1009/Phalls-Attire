@@ -7,6 +7,15 @@ const router = express.Router();
 
 router.use(authenticate);
 
+const resolveFavouriteImageUrl = (image) => {
+  const rawImage = String(image || "").trim();
+  if (!rawImage) return null;
+  if (/^https?:\/\//i.test(rawImage) || /^data:image\//i.test(rawImage)) {
+    return rawImage;
+  }
+  return `/uploads/${rawImage.replace(/^\/?uploads\//i, "").replace(/^\/+/, "")}`;
+};
+
 router.get("/", async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -39,7 +48,7 @@ router.get("/", async (req, res) => {
         category: row.category,
         description: row.description,
         price: row.price,
-        image_url: row.image_name ? `/uploads/${row.image_name}` : null,
+        image_url: resolveFavouriteImageUrl(row.image_name),
         hsn_code: null,
         stock_status: null,
       },

@@ -5,7 +5,17 @@ const supabase = require("../supabase");
 const PRODUCT_IMAGES_BUCKET = "phalls-images";
 const PRODUCT_IMAGES_PREFIX = "products";
 
+const ensureSupabaseStorageConfig = () => {
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SECRET_KEY) {
+    const configError = new Error("Supabase storage is not configured.");
+    configError.code = "SUPABASE_CONFIG_MISSING";
+    throw configError;
+  }
+};
+
 const uploadProductImageToSupabase = async (file) => {
+  ensureSupabaseStorageConfig();
+
   if (!file?.buffer) {
     throw new Error("Image file buffer is missing.");
   }
@@ -57,6 +67,8 @@ const getSupabaseProductImagePath = (imageUrl) => {
 };
 
 const deleteProductImageFromSupabase = async (imageUrl) => {
+  ensureSupabaseStorageConfig();
+
   const filePath = getSupabaseProductImagePath(imageUrl);
   if (!filePath) return;
 
